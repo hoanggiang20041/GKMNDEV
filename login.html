@@ -308,6 +308,10 @@
                     document.getElementById('phoneNumberError').textContent = 'Số điện thoại đã được sử dụng.';
                     return;
                 }
+                if (!province) {
+                    document.getElementById('provinceError').textContent = 'Vui lòng chọn tỉnh thành.';
+                    return;
+                }
 
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
@@ -390,34 +394,34 @@
         }
 
         async function googleSignIn() {
-    try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
 
-        const userQuery = query(collection(db, "users"), where("email", "==", user.email));
-        const userDoc = await getDocs(userQuery);
+                const userQuery = query(collection(db, "users"), where("email", "==", user.email));
+                const userDoc = await getDocs(userQuery);
 
-        if (userDoc.empty) {
-            alert('Tài khoản Google này chưa được đăng ký.');
-            return;
+                if (userDoc.empty) {
+                    alert('Tài khoản Google này chưa được đăng ký.');
+                    return;
+                }
+
+                const loginHistoryRef = collection(db, "loginHistory");
+                const loginTimestamp = new Date();
+
+                await setDoc(doc(loginHistoryRef, `${user.uid}_${Date.now()}`), {
+                    userId: user.uid,
+                    username: user.displayName || user.email,
+                    timestamp: loginTimestamp.toISOString(),
+                    formattedTime: formatTimestamp(loginTimestamp.toISOString()),
+                    method: 'Google'
+                });
+
+                window.location.href = './home.html';
+            } catch (error) {
+                alert('Đã xảy ra lỗi khi đăng nhập bằng Google: ' + error.message);
+            }
         }
-
-        const loginHistoryRef = collection(db, "loginHistory");
-        const loginTimestamp = new Date();
-
-        await setDoc(doc(loginHistoryRef, `${user.uid}_${Date.now()}`), {
-            userId: user.uid,
-            username: user.displayName || user.email,
-            timestamp: loginTimestamp.toISOString(),
-            formattedTime: formatTimestamp(loginTimestamp.toISOString()),
-            method: 'Google'
-        });
-
-        window.location.href = './home.html';
-    } catch (error) {
-        alert('Đã xảy ra lỗi khi đăng nhập bằng Google: ' + error.message);
-    }
-}
     </script>
 </head>
 
@@ -487,6 +491,51 @@
                 <option value="Danang">Đà Nẵng</option>
                 <option value="Haiphong">Hải Phòng</option>
                 <option value="Cantho">Cần Thơ</option>
+                <option value="AnGiang">An Giang</option>
+                <option value="BacGiang">Bắc Giang</option>
+                <option value="BacKan">Bắc Kạn</option>
+                <option value="BacNinh">Bắc Ninh</option>
+                <option value="BinhDinh">Bình Định</option>
+                <option value="BinhDuong">Bình Dương</option>
+                <option value="BinhPhuoc">Bình Phước</option>
+                <option value="CaMau">Cà Mau</option>
+                <option value="CanTho">Cần Thơ</option>
+                <option value="DaNang">Đà Nẵng</option>
+                <option value="DongNai">Đồng Nai</option>
+                <option value="DongThap">Đồng Tháp</option>
+                <option value="GiaLai">Gia Lai</option>
+                <option value="HaNam">Hà Nam</option>
+                <option value="HaTinh">Hà Tĩnh</option>
+                <option value="HauGiang">Hậu Giang</option>
+                <option value="HoaBinh">Hòa Bình</option>
+                <option value="HungYen">Hưng Yên</option>
+                <option value="KienGiang">Kiên Giang</option>
+                <option value="KonTum">Kon Tum</option>
+                <option value="Lai Chau">Lai Châu</option>
+                <option value="LamDong">Lâm Đồng</option>
+                <option value="LangSon">Lạng Sơn</option>
+                <option value="NinhBinh">Ninh Bình</option>
+                <option value="NinhThuan">Ninh Thuận</option>
+                <option value="NgheAn">Nghệ An</option>
+                <option value="ThaiBinh">Thái Bình</option>
+                <option value="ThaiNguyen">Thái Nguyên</option>
+                <option value="ThanhHoa">Thanh Hóa</option>
+                <option value="ThuaThienHue">Thừa Thiên Huế</option>
+                <option value="TienGiang">Tiền Giang</option>
+                <option value="TraVinh">Trà Vinh</option>
+                <option value="TuyenQuang">Tuyên Quang</option>
+                <option value="VinhLong">Vĩnh Long</option>
+                <option value="VinhPhuc">Vĩnh Phúc</option>
+                <option value="YenBai">Yên Bái</option>
+                <option value="QuangBinh">Quảng Bình</option>
+                <option value="QuangNam">Quảng Nam</option>
+                <option value="QuangNgai">Quảng Ngãi</option>
+                <option value="QuangNinh">Quảng Ninh</option>
+                <option value="SocTrang">Sóc Trăng</option>
+                <option value="DakLak">Đắk Lắk</option>
+                <option value="DakNong">Đắk Nông</option>
+                <option value="HauGiang">Hậu Giang</option>
+
             </select>
             <button type="submit">Đăng Ký</button>
             <div class="or-text">or</div>
