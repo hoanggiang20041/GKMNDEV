@@ -174,14 +174,6 @@
             color: red;
         }
 
-        .status {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #f0f8ff;
-            color: #333;
-        }
-
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -194,6 +186,7 @@
             }
         }
 
+        /* Updated styles for the update form */
         #updateForm {
             margin-top: 20px;
             padding: 20px;
@@ -321,52 +314,37 @@
 
             if (!newUsername || !newPhone) {
                 updateStatus.textContent = 'Vui lòng nhập đầy đủ thông tin!';
-                updateStatus.classList.add('error');
                 return;
             }
 
-            // Ensure the phone number starts with +84 if it starts with 0
-            const formattedPhone = newPhone.startsWith('0') ? '+84' + newPhone.slice(1) : newPhone;
-
             // Check if the new username or phone already exists
             getDoc(doc(db, 'users', uid)).then((docSnap) => {
-                const existingData = docSnap.data();
-                let isDuplicate = false;
+                if (docSnap.exists()) {
+                    const existingData = docSnap.data();
 
-                // Check for duplicate username and phone in the database
-                const usersRef = db.collection('users');
-                usersRef.get().then((snapshot) => {
-                    snapshot.forEach((doc) => {
-                        const userData = doc.data();
-                        if (userData.username === newUsername && doc.id !== uid) {
-                            isDuplicate = true;
-                            updateStatus.textContent = 'Tên người dùng đã tồn tại!';
-                            updateStatus.classList.add('error');
-                        }
-                        if (userData.tel === formattedPhone && doc.id !== uid) {
-                            isDuplicate = true;
-                            updateStatus.textContent = 'Số điện thoại đã tồn tại!';
-                            updateStatus.classList.add('error');
-                        }
-                    });
+                    // Prevent duplicate username or phone number
+                    if (existingData.username === newUsername) {
+                        updateStatus.textContent = 'Tên người dùng không thay đổi!';
+                        return;
+                    }
+                    if (existingData.tel === newPhone) {
+                        updateStatus.textContent = 'Số điện thoại không thay đổi!';
+                        return;
+                    }
+                }
 
-                    if (isDuplicate) return;
-
-                    // Proceed to update if checks are passed
-                    setDoc(doc(db, 'users', uid), {
-                        username: newUsername,
-                        tel: formattedPhone
-                    }, { merge: true }).then(() => {
-                        updateStatus.textContent = 'Cập nhật thành công!';
-                        updateStatus.classList.remove('error');
-                        document.getElementById('username').innerText = newUsername;
-                        document.getElementById('tel').innerText = formattedPhone;
-                        document.getElementById('updateForm').style.display = 'none';
-                    }).catch((error) => {
-                        console.error("Error updating user info:", error);
-                        updateStatus.textContent = 'Có lỗi xảy ra, vui lòng thử lại!';
-                        updateStatus.classList.add('error');
-                    });
+                // Proceed to update if checks are passed
+                setDoc(doc(db, 'users', uid), {
+                    username: newUsername,
+                    tel: newPhone
+                }, { merge: true }).then(() => {
+                    updateStatus.textContent = 'Cập nhật thành công!';
+                    document.getElementById('username').innerText = newUsername;
+                    document.getElementById('tel').innerText = newPhone;
+                    document.getElementById('updateForm').style.display = 'none';
+                }).catch((error) => {
+                    console.error("Error updating user info:", error);
+                    updateStatus.textContent = 'Có lỗi xảy ra, vui lòng thử lại!';
                 });
             }).catch((error) => {
                 console.error("Error checking for duplicates:", error);
@@ -390,7 +368,6 @@
                             idCardStatus: "Đang chờ xác nhận"
                         }, { merge: true }).then(() => {
                             document.getElementById('uploadStatus').innerText = "Tải lên thành công! Đang chờ xác nhận.";
-                            document.getElementById('uploadStatus').classList.add('status');
 
                             // Log activity in userActivities collection
                             const activityDocRef = doc(db, 'userActivities', uid + '_' + Date.now());
@@ -504,7 +481,7 @@
                     <input type="text" id="newPhone" placeholder="Nhập số điện thoại">
                 </div>
                 <button id="updateButton">Cập nhật</button>
-                <div id="updateStatus" class="status"></div>
+                <div id="updateStatus" class="error"></div>
             </div>
         </div>
     </div>
