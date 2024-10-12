@@ -42,12 +42,15 @@
             cursor: pointer;
             text-transform: uppercase;
             margin-right: 15px;
+            color: white;
+            text-decoration: none;
         }
 
         .navbar .menu-toggle {
             display: none;
             font-size: 24px;
             cursor: pointer;
+            margin-left: auto;
         }
 
         .navbar .nav-items {
@@ -171,7 +174,7 @@
 
         .exam-options {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
             gap: 10px;
         }
 
@@ -184,6 +187,7 @@
             border-radius: 5px;
             border: 1px solid #ccc;
             transition: background-color 0.3s ease;
+            flex-basis: calc(50% - 10px); /* Adjust this value to change layout */
         }
 
         .exam-option:hover {
@@ -297,10 +301,7 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="logo">
-            GKNM
-        </div>
-        <div class="menu-toggle">&#9776;</div>
+        <a href="home.html" class="logo">GKNM</a>
         <div class="nav-items">
             <a href="home.html">Trang Chủ</a>
             <a href="hotro.html">Hỗ Trợ</a>
@@ -308,6 +309,7 @@
             <a href="lichsu.html">Lịch sử</a>
             <button class="logout-btn">Đăng Xuất</button>
         </div>
+        <div class="menu-toggle">&#9776;</div>
     </nav>
     
     <div class="container">

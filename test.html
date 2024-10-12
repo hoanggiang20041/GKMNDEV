@@ -24,19 +24,13 @@
             background-color: #fff;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             border-radius: 10px;
+            overflow: hidden;
+            position: relative;
         }
 
-        h1 {
+        h1, h2 {
             text-align: center;
             color: #2c7a7b;
-            margin-bottom: 40px;
-            font-weight: 700;
-        }
-        h2 {
-            text-align: center;
-            color: #0a1010;
-            margin-bottom: 20px;
-            font-weight: 700;
         }
 
         .username {
@@ -67,7 +61,8 @@
         }
 
         .submit-btn,
-        .cert-btn {
+        .cert-btn,
+        .back-button {
             display: block;
             width: 100%;
             padding: 15px;
@@ -83,8 +78,29 @@
         }
 
         .submit-btn:hover,
-        .cert-btn:hover {
+        .cert-btn:hover,
+        .back-btn:hover {
             background-color: #285e61;
+        }
+
+        .camera-frame {
+            position: fixed; /* Giữ cố định */
+            top: 20px; /* Điều chỉnh vị trí */
+            right: 20px; /* Đặt ở góc phải */
+            width: 200px;
+            height: 150px;
+            border: 2px solid #2c7a7b;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: black;
+            z-index: 1000; /* Đảm bảo nó nằm trên nội dung khác */
+            cursor: move; /* Hiển thị con trỏ di chuyển */
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .message {
@@ -139,30 +155,37 @@
             .question p {
                 font-size: 16px;
             }
+
+            .camera-frame {
+                width: 150px; /* Kích thước nhỏ hơn trên di động */
+                height: 100px; /* Kích thước nhỏ hơn trên di động */
+            }
         }
     </style>
 </head>
 
 <body>
+    <div class="camera-frame" id="cameraFrame">
+        <video id="camera" autoplay></video>
+    </div>
     <div class="quiz-container">
         <h1>Bài thi trắc nghiệm Lịch sử</h1>
-        <h2>Bạn phải đúng 15/20 câu </h2>
-        <h2>Mới được nhận chứng chỉ </h2>
-            
+        <h2>Bạn phải đúng 15/20 câu</h2>
+        <h2>Mới được nhận chứng chỉ</h2>
         
         <p class="username" id="username">Tên người dùng: Đang tải...</p>
         <div id="timer" class="timer">Thời gian: 04:00</div>
         <form id="quizForm"></form>
         <button type="button" class="submit-btn" onclick="submitQuiz()">Nộp bài</button>
         <div id="message" class="message">Cảm ơn bạn đã hoàn thành bài thi!</div>
-        <button type="button" class="cert-btn" id="certBtn" style="display: none;" onclick="getCertificate()">Nhận chứng
-            chỉ</button>
+        <button type="button" class="cert-btn" id="certBtn" style="display: none;" onclick="getCertificate()">Nhận chứng chỉ</button>
+        <button class="back-button" onclick="goBack()">Quay lại</button>
     </div>
     <div class="footer">
         <p>Thiết kế bởi GKNM</p>
     </div>
 
-    <!-- Firebase SDK (Dùng phiên bản không phải mô-đun) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.8.0/firebase-firestore-compat.js"></script>
@@ -189,94 +212,89 @@
         const quizForm = document.getElementById('quizForm');
         const certBtn = document.getElementById('certBtn');
         const usernameElement = document.getElementById('username');
-        let selectedQuestions = []; // Biến toàn cục lưu các câu hỏi đã chọn
-        let username = ""; // Biến lưu trữ tên người dùng
+        let selectedQuestions = [];
+        let username = "";
+        let cameraActive = true;
 
-        // Mảng câu hỏi với 50 câu
         const questionBank = [
-    { question: 'Năm nào Hồ Chí Minh ra đi tìm đường cứu nước?', options: ['1911', '1912', '1913', '1914'], answer: '1911' },
-    { question: 'Cuộc kháng chiến chống Pháp lần thứ nhất bắt đầu vào năm nào?', options: ['1858', '1884', '1945', '1954'], answer: '1858' },
-    { question: 'Ai là người đầu tiên đặt chân đến Việt Nam vào thế kỷ 16?', options: ['Ferdinand Magellan', 'Vasco da Gama', 'Marco Polo', 'Christophe Colomb'], answer: 'Ferdinand Magellan' },
-    { question: 'Ai là tác giả của "Hịch tướng sĩ"?', options: ['Trần Hưng Đạo', 'Lý Thường Kiệt', 'Nguyễn Trãi', 'Hồ Chí Minh'], answer: 'Trần Hưng Đạo' },
-    { question: 'Năm nào Việt Nam giành được độc lập từ Pháp?', options: ['1945', '1954', '1975', '1980'], answer: '1954' },
-    { question: 'Đâu là sự kiện khởi đầu của cuộc kháng chiến chống Mỹ cứu nước?', options: ['Cuộc tấn công vào căn cứ quân sự Mỹ ở Đà Nẵng', 'Vụ tấn công vào sân bay Tân Sơn Nhất', 'Cuộc chiến tranh Đông Dương lần thứ hai', 'Chiến dịch Điện Biên Phủ'], answer: 'Cuộc tấn công vào căn cứ quân sự Mỹ ở Đà Nẵng' },
-    { question: 'Ai là người viết bài thơ "Nam quốc sơn hà"?', options: ['Lý Thường Kiệt', 'Nguyễn Trãi', 'Hồ Chí Minh', 'Trần Hưng Đạo'], answer: 'Lý Thường Kiệt' },
-    { question: 'Năm nào kết thúc chiến tranh Việt Nam?', options: ['1975', '1986', '1990', '2000'], answer: '1975' },
-    { question: 'Ai là vị tướng nổi tiếng trong cuộc kháng chiến chống Pháp?', options: ['Võ Nguyên Giáp', 'Nguyễn Huệ', 'Lê Lợi', 'Trần Quốc Tuấn'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Tuyên ngôn độc lập của Việt Nam được đọc vào ngày nào?', options: ['2 tháng 9 năm 1945', '1 tháng 1 năm 1946', '3 tháng 5 năm 1950', '10 tháng 10 năm 1954'], answer: '2 tháng 9 năm 1945' },
-    { question: 'Ai là người đầu tiên lãnh đạo cuộc kháng chiến chống Pháp?', options: ['Hồ Chí Minh', 'Trần Hưng Đạo', 'Lê Lợi', 'Nguyễn Huệ'], answer: 'Hồ Chí Minh' },
-    { question: 'Cuộc chiến tranh Đông Dương lần thứ hai bắt đầu vào năm nào?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người sáng lập Đảng Cộng sản Việt Nam?', options: ['Hồ Chí Minh', 'Nguyễn Ái Quốc', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra chiến dịch Điện Biên Phủ?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
-    { question: 'Ai là nhà thơ nổi tiếng trong thời kỳ kháng chiến chống Mỹ?', options: ['Tố Hữu', 'Chế Lan Viên', 'Xuân Diệu', 'Nguyễn Đình Thi'], answer: 'Tố Hữu' },
-    { question: 'Chiến dịch Hồ Chí Minh diễn ra vào năm nào?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là người chủ trì hội nghị Geneva về Việt Nam?', options: ['Hồ Chí Minh', 'Phạm Văn Đồng', 'Võ Nguyên Giáp', 'Lê Duẩn'], answer: 'Phạm Văn Đồng' },
-    { question: 'Năm nào Việt Nam thống nhất?', options: ['1975', '1976', '1980', '1986'], answer: '1975' },
-    { question: 'Ai là vị vua nổi tiếng trong cuộc kháng chiến chống Pháp?', options: ['Lê Lợi', 'Nguyễn Huệ', 'Trần Nhân Tông', 'Lý Thái Tổ'], answer: 'Lê Lợi' },
-    { question: 'Năm nào diễn ra cuộc khởi nghĩa Yên Thế?', options: ['1884', '1885', '1886', '1887'], answer: '1884' },
-    { question: 'Ai là người sáng lập ra nhà nước Việt Nam Dân chủ Cộng hòa?', options: ['Hồ Chí Minh', 'Lê Duẩn', 'Trường Chinh', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Chiến tranh Việt Nam kéo dài từ năm nào đến năm nào?', options: ['1954 - 1975', '1945 - 1975', '1946 - 1975', '1960 - 1975'], answer: '1945 - 1975' },
-    { question: 'Tại sao Việt Nam có tên gọi là "Đất nước hình chữ S"?', options: ['Vì địa hình', 'Vì lịch sử', 'Vì văn hóa', 'Vì khí hậu'], answer: 'Vì địa hình' },
-    { question: 'Ai là tác giả của tác phẩm "Đại cáo bình Nguyên"?', options: ['Nguyễn Trãi', 'Trần Hưng Đạo', 'Lý Thường Kiệt', 'Hồ Chí Minh'], answer: 'Nguyễn Trãi' },
-    { question: 'Cuộc kháng chiến chống Mỹ kéo dài bao lâu?', options: ['20 năm', '15 năm', '10 năm', '5 năm'], answer: '20 năm' },
-    { question: 'Ai là người lãnh đạo Việt Minh trong kháng chiến chống Pháp?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Trường Chinh', 'Lê Duẩn'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc cách mạng tháng Tám?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
-    { question: 'Ai là người viết "Tuyên ngôn độc lập" của Việt Nam?', options: ['Hồ Chí Minh', 'Nguyễn Trãi', 'Trường Chinh', 'Lê Duẩn'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra vụ thảm sát Mỹ Lai?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
-    { question: 'Ai là người chỉ huy quân đội Việt Nam trong chiến dịch Điện Biên Phủ?', options: ['Võ Nguyên Giáp', 'Nguyễn Huệ', 'Trần Hưng Đạo', 'Lê Lợi'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Năm nào diễn ra hội nghị Paris về hòa bình ở Việt Nam?', options: ['1973', '1974', '1975', '1976'], answer: '1973' },
-    { question: 'Năm nào Việt Nam gia nhập Liên Hợp Quốc?', options: ['1975', '1976', '1980', '1986'], answer: '1977' },
-    { question: 'Ai là người đầu tiên xây dựng nhà nước phong kiến ở Việt Nam?', options: ['Lý Thái Tổ', 'Trần Thánh Tông', 'Lê Lợi', 'Nguyễn Huệ'], answer: 'Lý Thái Tổ' },
-    { question: 'Năm nào diễn ra cuộc khởi nghĩa Lam Sơn?', options: ['1418', '1428', '1430', '1431'], answer: '1418' },
-    { question: 'Ai là người lãnh đạo cuộc khởi nghĩa Tây Sơn?', options: ['Nguyễn Huệ', 'Nguyễn Nhạc', 'Nguyễn Lữ', 'Nguyễn Trãi'], answer: 'Nguyễn Huệ' },
-    { question: 'Năm nào diễn ra chiến tranh biên giới Việt - Trung?', options: ['1979', '1980', '1981', '1982'], answer: '1979' },
-    { question: 'Ai là người đã viết "Hịch tướng sĩ"?', options: ['Trần Hưng Đạo', 'Nguyễn Trãi', 'Lý Thường Kiệt', 'Hồ Chí Minh'], answer: 'Trần Hưng Đạo' },
-    { question: 'Năm nào cuộc chiến tranh Việt Nam chính thức kết thúc?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là người chỉ huy quân đội Việt Nam trong chiến dịch Hồ Chí Minh?', options: ['Võ Nguyên Giáp', 'Nguyễn Huệ', 'Lê Duẩn', 'Trường Chinh'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Năm nào diễn ra cuộc khởi nghĩa Bắc Sơn?', options: ['1940', '1941', '1942', '1943'], answer: '1940' },
-    { question: 'Ai là người lãnh đạo cuộc khởi nghĩa Nhật Tân?', options: ['Nguyễn Huệ', 'Lê Lợi', 'Trần Hưng Đạo', 'Nguyễn Trãi'], answer: 'Nguyễn Huệ' },
-    { question: 'Năm nào diễn ra chiến dịch Bình Giã?', options: ['1964', '1965', '1966', '1967'], answer: '1965' },
-    { question: 'Ai là người đã phát động cuộc kháng chiến chống Pháp?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
-    { question: 'Tác phẩm nào được coi là "Tuyên ngôn độc lập" của nhân dân Việt Nam?', options: ['Tuyên ngôn độc lập', 'Đại cáo bình Nguyên', 'Hịch tướng sĩ', 'Lịch sử nước ta'], answer: 'Tuyên ngôn độc lập' },
-    { question: 'Năm nào diễn ra hội nghị thành lập Đảng Cộng sản Việt Nam?', options: ['1930', '1931', '1932', '1933'], answer: '1930' },
-    { question: 'Ai là người viết "Bình Nguyên"?', options: ['Nguyễn Trãi', 'Trần Hưng Đạo', 'Lê Lợi', 'Nguyễn Huệ'], answer: 'Nguyễn Trãi' },
-    { question: 'Năm nào diễn ra cuộc khởi nghĩa Pháp?', options: ['1884', '1885', '1886', '1887'], answer: '1885' },
-    { question: 'Ai là người lãnh đạo cuộc khởi nghĩa nông dân lớn nhất ở Việt Nam?', options: ['Nguyễn Huệ', 'Lê Lợi', 'Trần Hưng Đạo', 'Nguyễn Trãi'], answer: 'Nguyễn Huệ' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Pháp lần thứ hai?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người đứng đầu chính phủ Việt Nam Dân chủ Cộng hòa đầu tiên?', options: ['Hồ Chí Minh', 'Lê Duẩn', 'Trường Chinh', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra chiến dịch Điện Biên Phủ?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
-    { question: 'Ai là vị tướng nổi tiếng trong chiến dịch Hồ Chí Minh?', options: ['Võ Nguyên Giáp', 'Lê Lợi', 'Nguyễn Huệ', 'Trần Quốc Tuấn'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Năm nào diễn ra chiến tranh Việt - Pháp?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa chống thực dân Pháp?', options: ['Hồ Chí Minh', 'Lê Lợi', 'Nguyễn Huệ', 'Trần Hưng Đạo'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Mỹ?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
-    { question: 'Ai là người đã viết "Lịch sử nước ta"?', options: ['Nguyễn Trãi', 'Trần Hưng Đạo', 'Hồ Chí Minh', 'Võ Nguyên Giáp'], answer: 'Nguyễn Trãi' },
-    { question: 'Năm nào diễn ra hội nghị Geneva?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
-    { question: 'Ai là người đã tổ chức cuộc khởi nghĩa Yên Thế?', options: ['Đề Thám', 'Nguyễn Huệ', 'Lê Lợi', 'Trần Hưng Đạo'], answer: 'Đề Thám' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Pháp lần thứ ba?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người đã lãnh đạo cuộc kháng chiến chống Pháp?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Trường Chinh', 'Lê Duẩn'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc khởi nghĩa chống Mỹ?', options: ['1954', '1965', '1968', '1975'], answer: '1965' },
-    { question: 'Ai là người đứng đầu chính phủ đầu tiên của Việt Nam?', options: ['Hồ Chí Minh', 'Lê Duẩn', 'Trường Chinh', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc chiến tranh Việt - Mỹ?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
-    { question: 'Ai là người đã lãnh đạo cuộc kháng chiến chống thực dân Pháp?', options: ['Hồ Chí Minh', 'Lê Lợi', 'Nguyễn Huệ', 'Trần Hưng Đạo'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc chiến tranh Đông Dương lần thứ nhất?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa Lam Sơn?', options: ['Lê Lợi', 'Nguyễn Huệ', 'Trần Hưng Đạo', 'Nguyễn Trãi'], answer: 'Lê Lợi' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Pháp lần thứ tư?', options: ['1946', '1947', '1948', '1949'], answer: '1946' },
-    { question: 'Ai là người đã lãnh đạo cuộc kháng chiến chống Mỹ ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Trường Chinh', 'Lê Duẩn'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc chiến tranh Việt - Pháp lần thứ hai?', options: ['1946', '1947', '1948', '1949'], answer: '1946' },
-    { question: 'Ai là người đã lãnh đạo cuộc kháng chiến chống thực dân Pháp lần thứ hai?', options: ['Hồ Chí Minh', 'Lê Lợi', 'Nguyễn Huệ', 'Trần Hưng Đạo'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc khởi nghĩa Bảy Tháng?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
-    { question: 'Ai là người đã lãnh đạo cuộc kháng chiến chống Pháp ở miền Trung?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
     { question: 'Năm nào diễn ra cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
     { question: 'Ai là người đứng đầu chính phủ Việt Nam trong giai đoạn kháng chiến chống Pháp?', options: ['Hồ Chí Minh', 'Lê Duẩn', 'Trường Chinh', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
     { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ ba?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
     { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa Yên Thế lần thứ hai?', options: ['Đề Thám', 'Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Huệ'], answer: 'Đề Thám' },
-        ];
+    { question: 'Chiến dịch nào đã diễn ra vào tháng 5 năm 1954?', options: ['Điện Biên Phủ', 'Hà Nội', 'Củ Chi', 'Nam Bộ'], answer: 'Điện Biên Phủ' },
+    { question: 'Ai là người sáng lập Đảng Cộng sản Việt Nam?', options: ['Hồ Chí Minh', 'Lê Duẩn', 'Trường Chinh', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
+    { question: 'Năm nào Việt Nam thống nhất đất nước?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
+    { question: 'Ai là Tổng tư lệnh quân đội nhân dân Việt Nam trong cuộc kháng chiến chống Mỹ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh', 'Lê Duẩn'], answer: 'Võ Nguyên Giáp' },
+    { question: 'Cuộc kháng chiến chống Mỹ bắt đầu từ năm nào?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
+    { question: 'Năm nào diễn ra Hội nghị Geneva?', options: ['1954', '1956', '1958', '1960'], answer: '1954' },
+    { question: 'Ai là người lãnh đạo cuộc khởi nghĩa tháng Tám năm 1945?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
+    { question: 'Năm nào diễn ra cuộc cách mạng tháng Tám?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
+    { question: 'Ai là người ký hiệp định Paris năm 1973?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
+    { question: 'Nước nào đã thả quả bom nguyên tử đầu tiên xuống Hiroshima?', options: ['Mỹ', 'Liên Xô', 'Nhật Bản', 'Đức'], answer: 'Mỹ' },
+    { question: 'Năm 1789, cuộc Cách mạng Pháp bắt đầu tại thành phố nào?', options: ['Paris', 'London', 'Berlin', 'Roma'], answer: 'Paris' },
+    { question: 'Ai là nữ hoàng nổi tiếng của Ai Cập cổ đại?', options: ['Cleopatra', 'Nefertiti', 'Hatshepsut', 'Isis'], answer: 'Cleopatra' },
+    { question: 'Năm nào diễn ra cuộc tổng tấn công Tết Mậu Thân?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
+    { question: 'Ai là người viết bản Tuyên ngôn độc lập của Việt Nam?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
+    { question: 'Cuộc kháng chiến chống Mỹ kết thúc vào năm nào?', options: ['1973', '1975', '1976', '1977'], answer: '1975' },
+    { question: 'Năm nào Việt Nam gia nhập Liên Hợp Quốc?', options: ['1975', '1976', '1977', '1978'], answer: '1977' },
+    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống thực dân Pháp ở Bắc Kỳ?', options: ['Hồ Chí Minh', 'Nguyễn Huệ', 'Đề Thám', 'Lê Duẩn'], answer: 'Đề Thám' },
+    { question: 'Năm nào diễn ra cuộc chiến tranh biên giới phía Bắc?', options: ['1979', '1980', '1981', '1982'], answer: '1979' },
+    { question: 'Ai là người lãnh đạo cuộc khởi nghĩa chống thực dân Pháp ở miền Nam?', options: ['Hồ Chí Minh', 'Nguyễn Văn Linh', 'Trần Văn Giàu', 'Lê Duẩn'], answer: 'Trần Văn Giàu' },
+    { question: 'Ai là tác giả của tác phẩm "Tuyên ngôn độc lập"?', options: ['Hồ Chí Minh', 'Tố Hữu', 'Chế Lan Viên', 'Xuân Diệu'], answer: 'Hồ Chí Minh' },
+    { question: 'Năm nào diễn ra chiến dịch Điện Biên Phủ?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
+    { question: 'Ai là người ký hiệp định Geneva?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
+    { question: 'Năm nào diễn ra cuộc kháng chiến chống Mỹ cứu nước?', options: ['1954', '1965', '1975', '1976'], answer: '1965' },
+    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
+    { question: 'Ai là Tổng thống đầu tiên của Việt Nam Cộng Hòa?', options: ['Nguyễn Văn Thiệu', 'Ngô Đình Diệm', 'Trần Văn Hương', 'Lê Văn Viễn'], answer: 'Ngô Đình Diệm' },
+    { question: 'Năm nào diễn ra cuộc tấn công vào Huế?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
+    { question: 'Chiến tranh Việt Nam diễn ra từ năm nào đến năm nào?', options: ['1954-1975', '1950-1975', '1954-1970', '1955-1975'], answer: '1954-1975' },
+    { question: 'Ai là người lãnh đạo cuộc tổng tấn công Tết Mậu Thân?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Võ Nguyên Giáp' },
+    { question: 'Năm nào Việt Nam ký hiệp định Paris?', options: ['1973', '1974', '1975', '1976'], answer: '1973' },
+    { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ nhất?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
+    { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa Bắc Sơn?', options: ['Đề Thám', 'Hồ Chí Minh', 'Nguyễn Ái Quốc', 'Võ Nguyên Giáp'], answer: 'Nguyễn Ái Quốc' },
+    { question: 'Năm nào diễn ra cuộc kháng chiến chống Mỹ ở miền Nam?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
+    { question: 'Ai là người ký hiệp định đình chiến tại Bác', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
+    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Sài Gòn?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
+    { question: 'Ai là lãnh đạo của Việt Nam trong cuộc kháng chiến chống Mỹ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Lê Duẩn' },
+    { question: 'Cuộc chiến tranh Việt Nam kết thúc vào năm nào?', options: ['1973', '1975', '1976', '1977'], answer: '1975' },
+    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống thực dân Pháp ở Nam Bộ?', options: ['Hồ Chí Minh', 'Nguyễn Văn Linh', 'Trần Văn Giàu', 'Lê Duẩn'], answer: 'Trần Văn Giàu' },
+    { question: 'Năm nào diễn ra chiến dịch Hồ Chí Minh?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
+    { question: 'Ai là Tổng tư lệnh trong trận Điện Biên Phủ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh', 'Lê Duẩn'], answer: 'Võ Nguyên Giáp' },
+    { question: 'Năm nào diễn ra chiến dịch tổng tấn công Tết Mậu Thân?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
+    { question: 'Ai là người viết bản Tuyên ngôn độc lập của Việt Nam?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
+    { question: 'Cuộc kháng chiến chống Pháp ở Việt Nam kết thúc vào năm nào?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
+    { question: 'Năm nào diễn ra cuộc chiến tranh biên giới Việt - Trung?', options: ['1979', '1980', '1981', '1982'], answer: '1979' },
+    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
+    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Sài Gòn?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
+    { question: 'Ai là Tổng thống đầu tiên của Việt Nam Cộng Hòa?', options: ['Nguyễn Văn Thiệu', 'Ngô Đình Diệm', 'Trần Văn Hương', 'Lê Văn Viễn'], answer: 'Ngô Đình Diệm' },
+    { question: 'Năm nào Việt Nam giành được độc lập?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
+    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Mỹ ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
+    { question: 'Năm nào diễn ra cuộc chiến tranh Việt Nam?', options: ['1954-1975', '1960-1975', '1950-1975', '1965-1975'], answer: '1954-1975' },
+    { question: 'Ai là người ký hiệp định đình chiến tại Bác?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
+    { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ nhất?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
+    { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa Bắc Sơn?', options: ['Đề Thám', 'Hồ Chí Minh', 'Nguyễn Ái Quốc', 'Võ Nguyên Giáp'], answer: 'Nguyễn Ái Quốc' },
+    { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ hai?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
+    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Nam?', options: ['Hồ Chí Minh', 'Nguyễn Văn Linh', 'Trần Văn Giàu', 'Lê Duẩn'], answer: 'Trần Văn Giàu' },
+    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Huế?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
+    { question: 'Ai là người ký hiệp định Paris?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
+    { question: 'Năm nào diễn ra cuộc kháng chiến chống Mỹ ở miền Nam?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
+    { question: 'Ai là người đã lãnh đạo cuộc tổng tấn công Tết Mậu Thân?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Võ Nguyên Giáp' },
+    { question: 'Năm nào diễn ra chiến dịch Hồ Chí Minh?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
+    { question: 'Ai là Tổng tư lệnh trong trận Điện Biên Phủ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh', 'Lê Duẩn'], answer: 'Võ Nguyên Giáp' },
+    { question: 'Năm nào diễn ra cuộc tổng tấn công Tết Mậu Thân?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
+    { question: 'Ai là người viết bản Tuyên ngôn độc lập của Việt Nam?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
+    { question: 'Cuộc kháng chiến chống Pháp ở Việt Nam kết thúc vào năm nào?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
+    { question: 'Năm nào diễn ra cuộc chiến tranh biên giới Việt - Trung?', options: ['1979', '1980', '1981', '1982'], answer: '1979' },
+    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
+    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Sài Gòn?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
+    { question: 'Ai là Tổng thống đầu tiên của Việt Nam Cộng Hòa?', options: ['Nguyễn Văn Thiệu', 'Ngô Đình Diệm', 'Trần Văn Hương', 'Lê Văn Viễn'], answer: 'Ngô Đình Diệm' },
+    { question: 'Năm nào Việt Nam giành được độc lập?', options: ['1945', '1946', '1947', '1948'], answer: '1945' }
+];
 
-        // Hàm lấy tên đầy đủ của người dùng từ Firestore
         function getUsername(userId) {
             db.collection("users").doc(userId).get().then((doc) => {
                 if (doc.exists) {
-                    const fullName = doc.data().fullName;  // Lấy fullName
+                    const fullName = doc.data().fullName;
                     usernameElement.textContent = `Họ và tên: "${fullName}"`;
                     username = fullName;
                 } else {
@@ -286,25 +304,52 @@
                 console.log("Lỗi khi lấy tài liệu:", error);
             });
         }
+        function goBack() {
+            window.location.href = 'home.html'; // Chuyển hướng về trang chủ
+        }
 
-        // Tự động lấy userId từ Firebase Authentication
-        firebase.auth().onAuthStateChanged(function (user) {
+        firebase.auth().onAuthStateChanged((user) => {
             if (user) {
-                const userId = user.uid; // Lấy userId của người dùng đã đăng nhập
-                getUsername(userId); // Lấy tên đầy đủ từ Firestore
+                const userId = user.uid;
+                getUsername(userId);
                 startTimer();
                 displayQuestions();
+                startCamera();
             } else {
-                // Nếu chưa đăng nhập, chuyển hướng đến trang đăng nhập
                 window.location.href = 'login.html';
             }
         });
 
-        // Lưu kết quả vào Firestore
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    document.getElementById('camera').srcObject = stream;
+                    monitorCamera(stream);
+                })
+                .catch(err => {
+                    console.error("Lỗi khi truy cập camera: ", err);
+                    alert("Không thể truy cập camera. Vui lòng kiểm tra thiết bị của bạn.");
+                    submitQuiz(); // Tự động nộp bài khi không có quyền truy cập camera
+                });
+        }
+
+        function monitorCamera(stream) {
+            const videoTracks = stream.getVideoTracks();
+            videoTracks[0].addEventListener('ended', () => {
+                handleCameraOff();
+            });
+        }
+
+        function handleCameraOff() {
+            cameraActive = false; // Đánh dấu camera đã bị tắt
+            alert("Camera đã bị tắt! Bài thi sẽ tự động nộp.");
+            submitQuiz(); // Tự động nộp bài ngay khi camera bị tắt
+        }
+
         function saveQuizResult(correctCount) {
-            const userId = firebase.auth().currentUser.uid; // Lấy userId từ Firebase Authentication
+            const userId = firebase.auth().currentUser.uid;
             db.collection("quizResults").add({
-                userId: userId, // Thêm userId vào tài liệu
+                userId: userId,
                 fullName: username,
                 score: correctCount,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -315,13 +360,11 @@
             });
         }
 
-        // Hàm chọn ngẫu nhiên n câu hỏi từ bộ câu hỏi lớn
         function getRandomQuestions(n) {
             const shuffled = questionBank.sort(() => 0.5 - Math.random());
             return shuffled.slice(0, n);
         }
 
-        // Hiển thị câu hỏi
         function displayQuestions() {
             const quizForm = document.getElementById("quizForm");
             if (!quizForm) {
@@ -329,7 +372,7 @@
                 return;
             }
 
-            selectedQuestions = getRandomQuestions(20); // Chọn ngẫu nhiên 10 câu hỏi và lưu lại
+            selectedQuestions = getRandomQuestions(20);
             selectedQuestions.forEach((q, index) => {
                 const questionDiv = document.createElement('div');
                 questionDiv.classList.add('question');
@@ -354,7 +397,6 @@
             });
         }
 
-        // Đếm ngược khi trang được tải
         function startTimer() {
             const interval = setInterval(() => {
                 const minutes = Math.floor(timerValue / 60);
@@ -364,12 +406,11 @@
 
                 if (timerValue < 0) {
                     clearInterval(interval);
-                    submitQuiz(); // Tự động nộp khi hết thời gian
+                    submitQuiz();
                 }
             }, 1000);
         }
 
-        // Xử lý nộp bài thi
         function submitQuiz() {
             let correctCount = 0;
             const formData = new FormData(quizForm);
@@ -381,33 +422,48 @@
                 }
             });
 
-            // Vô hiệu hóa các lựa chọn sau khi nộp bài
             const inputs = quizForm.querySelectorAll('input');
             inputs.forEach(input => {
-                input.disabled = true; // Vô hiệu hóa tất cả các lựa chọn
+                input.disabled = true;
             });
 
-            // Hiển thị thông báo
             message.style.display = 'block';
             message.textContent = `Cảm ơn bạn đã hoàn thành bài thi! Bạn trả lời đúng ${correctCount}/20 câu.`;
 
-            // Nếu trả lời đúng 8/10 câu thì hiển thị nút nhận chứng chỉ
             if (correctCount >= 15) {
                 certBtn.style.display = 'block';
             } else {
-                // Nếu trả lời sai dưới 8 câu, chuyển về home.html sau 3 giây
                 setTimeout(() => {
                     window.location.href = 'home.html';
                 }, 3000);
             }
 
-            // Lưu kết quả bài thi vào Firestore
             saveQuizResult(correctCount);
         }
 
-        // Chuyển đến trang chứng chỉ
         function getCertificate() {
             window.location.href = 'chungchi.html';
+        }
+
+        // Drag and Drop for Camera
+        const cameraFrame = document.getElementById('cameraFrame');
+        let offsetX, offsetY;
+
+        cameraFrame.addEventListener('mousedown', function (e) {
+            offsetX = e.clientX - cameraFrame.getBoundingClientRect().left;
+            offsetY = e.clientY - cameraFrame.getBoundingClientRect().top;
+            document.addEventListener('mousemove', dragCameraFrame);
+            document.addEventListener('mouseup', stopDragging);
+        });
+
+        function dragCameraFrame(e) {
+            cameraFrame.style.left = (e.clientX - offsetX) + 'px';
+            cameraFrame.style.top = (e.clientY - offsetY) + 'px';
+        }
+
+        function stopDragging() {
+            document.removeEventListener('mousemove', dragCameraFrame);
+            document.removeEventListener('mouseup', stopDragging);
         }
     </script>
 </body>

@@ -34,6 +34,16 @@
         .logo {
             font-size: 1.8em;
             font-weight: bold;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+        }
+
+        .logo img {
+            height: 40px;
+            margin-right: 10px;
         }
 
         .nav-items {
@@ -186,7 +196,6 @@
             }
         }
 
-        /* Updated styles for the update form */
         #updateForm {
             margin-top: 20px;
             padding: 20px;
@@ -238,7 +247,6 @@
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-storage.js";
 
-        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
             authDomain: "luutru-2fc0c.firebaseapp.com",
@@ -249,7 +257,6 @@
             measurementId: "G-QLE52FWS60"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -262,7 +269,6 @@
             });
         };
 
-        // Function to load user data from Firestore
         function loadUserData() {
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -284,7 +290,6 @@
                                 profilePicture.style.display = 'none';
                             }
 
-                            // Check for missing username or phone number
                             if (!userData.username || !userData.tel) {
                                 document.getElementById('updateForm').style.display = 'block';
                                 document.getElementById('newUsername').value = userData.username || '';
@@ -306,7 +311,6 @@
             });
         }
 
-        // Function to update user information
         function updateUserInfo(uid) {
             const newUsername = document.getElementById('newUsername').value.trim();
             const newPhone = document.getElementById('newPhone').value.trim();
@@ -317,12 +321,10 @@
                 return;
             }
 
-            // Check if the new username or phone already exists
             getDoc(doc(db, 'users', uid)).then((docSnap) => {
                 if (docSnap.exists()) {
                     const existingData = docSnap.data();
 
-                    // Prevent duplicate username or phone number
                     if (existingData.username === newUsername) {
                         updateStatus.textContent = 'Tên người dùng không thay đổi!';
                         return;
@@ -333,7 +335,6 @@
                     }
                 }
 
-                // Proceed to update if checks are passed
                 setDoc(doc(db, 'users', uid), {
                     username: newUsername,
                     tel: newPhone
@@ -351,7 +352,6 @@
             });
         }
 
-        // Function to upload ID card
         window.uploadIdCard = function () {
             const fileInput = document.getElementById('idCardInput');
             const file = fileInput.files[0];
@@ -369,7 +369,6 @@
                         }, { merge: true }).then(() => {
                             document.getElementById('uploadStatus').innerText = "Tải lên thành công! Đang chờ xác nhận.";
 
-                            // Log activity in userActivities collection
                             const activityDocRef = doc(db, 'userActivities', uid + '_' + Date.now());
                             setDoc(activityDocRef, {
                                 userId: uid,
@@ -394,7 +393,6 @@
             }
         };
 
-        // Function to upload profile picture
         window.uploadProfilePicture = function () {
             const fileInput = document.getElementById('profilePictureInput');
             const file = fileInput.files[0];
@@ -413,7 +411,6 @@
                             document.getElementById('profilePicture').style.display = 'block';
                             alert("Ảnh đại diện đã được cập nhật!");
 
-                            // Log activity in userActivities collection
                             const activityDocRef = doc(db, 'userActivities', uid + '_' + Date.now());
                             setDoc(activityDocRef, {
                                 userId: uid,
@@ -442,7 +439,8 @@
 
 <body>
     <div class="navbar">
-        <div class="logo">Hồ sơ cá nhân</div>
+        <a href="home.html" class="logo">GKNM</a>
+        </a>
         <div class="menu-toggle">
             <div></div>
             <div></div>

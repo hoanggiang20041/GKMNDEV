@@ -12,55 +12,98 @@
             padding: 20px;
         }
 
-        nav {
+        /* Navbar styles */
+        .navbar {
             background-color: #007BFF;
             color: white;
-            padding: 10px;
+            padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: relative;
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        nav .logo {
+        .logo {
+            font-size: 1.8em;
             font-weight: bold;
-            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
         }
 
-        nav .menu {
-            display: none;
-            flex-direction: column;
-            position: absolute;
-            background: #007BFF;
-            width: 100%;
-            left: 0;
-            top: 100%;
-            z-index: 10;
+        .nav-items {
+            display: flex;
+            gap: 15px;
         }
 
-        nav .menu a {
+        .nav-items a {
             color: white;
             text-decoration: none;
-            padding: 10px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-
-        nav .menu a.logout {
-            background-color: red;
-            padding: 8px 15px;
+            transition: color 0.3s, background-color 0.3s;
+            padding: 10px 15px;
             border-radius: 5px;
         }
 
-        nav .menu-icon {
+        .nav-items a:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-items a.logout {
+            background-color: #ff4c4c;
+            color: white;
+        }
+
+        .nav-items a.logout:hover {
+            background-color: #ff1a1a;
+        }
+
+        .menu-toggle {
+            display: none;
+            flex-direction: column;
             cursor: pointer;
-            display: block;
         }
 
-        .menu.active {
-            display: flex;
+        .menu-toggle div {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            margin: 4px 0;
+            transition: 0.4s;
         }
 
+        @media (max-width: 768px) {
+            .nav-items {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 60px;
+                left: 0;
+                width: 100%;
+                background-color: #007bff;
+                z-index: 4;
+            }
+
+            .nav-items a {
+                padding: 10px;
+                text-align: center;
+                border-top: 1px solid rgba(255, 255, 255, 0.3);
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+
+            .nav-items.active {
+                display: flex;
+            }
+        }
+
+        /* Table and page content styles */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -78,37 +121,26 @@
             background-color: #007BFF;
             color: white;
         }
-
-        @media (min-width: 600px) {
-            nav .menu {
-                display: flex;
-                flex-direction: row;
-                position: static;
-                width: auto;
-            }
-
-            nav .menu a {
-                margin-right: 20px;
-            }
-
-            nav .menu-icon {
-                display: none;
-            }
-        }
     </style>
 </head>
 
 <body>
-    <nav>
-        <div class="logo">Lịch Sử Hoạt Động</div>
-        <div class="menu-icon" onclick="toggleMenu()">☰</div>
-        <div class="menu">
+    <!-- Navbar (replaced with new navbar from previous code) -->
+    <div class="navbar">
+        <a href="home.html" class="logo">Lịch Sử Hoạt Động</a>
+        <div class="menu-toggle" onclick="toggleMenu()">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+        <div class="nav-items">
             <a href="home.html">Trang Chủ</a>
             <a href="hotro.html">Hỗ Trợ</a>
             <a href="profile.html">Hồ Sơ</a>
             <a href="login.html" class="logout">Đăng Xuất</a>
         </div>
-    </nav>
+    </div>
+
     <h2>Lịch Sử Đăng Nhập</h2>
     <table>
         <thead>
@@ -121,6 +153,7 @@
             <!-- Login history records will be inserted here -->
         </tbody>
     </table>
+
     <h2>Lịch Sử Thi</h2>
     <table>
         <thead>
@@ -166,7 +199,7 @@
         const db = getFirestore(app);
 
         window.toggleMenu = function () {
-            const menu = document.querySelector('.menu');
+            const menu = document.querySelector('.nav-items');
             menu.classList.toggle('active');
         }
 
