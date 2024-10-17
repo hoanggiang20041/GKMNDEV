@@ -5,7 +5,94 @@
     <title>Điều lệ trước khi thi</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <script type="module">
+        // Cấu hình Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
+            authDomain: "luutru-2fc0c.firebaseapp.com",
+            projectId: "luutru-2fc0c",
+            storageBucket: "luutru-2fc0c.appspot.com",
+            messagingSenderId: "447316566416",
+            appId: "1:447316566416:web:8ea9562ef016528232d315",
+            measurementId: "G-QLE52FWS60"
+        };
+
+        // Import Firebase và Firebase Authentication
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+
+        // Khởi tạo Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth();
+
+        let cameraAccessGranted = false;
+        let userId;
+        let fullName;
+
+        // Hàm kiểm tra và lấy userId từ Firebase Authentication và Firestore
+        async function checkUserId() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid; // Lấy userId từ Firebase Authentication
+                    const userRef = doc(db, "users", userId);
+                    const userSnap = await getDoc(userRef);
+
+                    if (userSnap.exists()) {
+                        // Lấy fullName từ tài liệu và hiển thị
+                        fullName = userSnap.data().fullName;
+                        document.getElementById('user-info').innerText = `Người dùng: ${fullName}`;
+                    } else {
+                        // Nếu tài liệu không tồn tại, yêu cầu nhập tên
+                        fullName = prompt("Vui lòng nhập tên đầy đủ của bạn:");
+                        document.getElementById('user-info').innerText = `Người dùng: ${fullName}`;
+                    }
+                } else {
+                    // Nếu người dùng chưa đăng nhập, chuyển hướng đến trang đăng nhập
+                    window.location.href = 'login.html';
+                }
+            });
+        }
+
+        // Bắt đầu camera
+        async function startCamera() {
+            try {
+                await checkUserId(); // Kiểm tra và lấy userId
+
+                const localStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('video').srcObject = localStream;
+                cameraAccessGranted = true; // Cấp quyền truy cập camera
+                document.getElementById('start-button').disabled = false; // Kích hoạt nút bắt đầu nếu có quyền
+            } catch (error) {
+                console.error("Error accessing the camera: ", error);
+                alert("Không thể truy cập vào camera. Vui lòng kiểm tra quyền.");
+                document.getElementById('start-button').disabled = true; // Nếu không có quyền, vô hiệu hóa nút bắt đầu
+            }
+        }
+
+        // Hàm bắt đầu bài thi
+        window.startQuiz = function() {
+            if (cameraAccessGranted) {
+                alert("Bắt đầu làm bài!");
+                window.location.href = 'test.html'; // Chuyển đến trang thi
+            } else {
+                alert("Vui lòng cấp quyền truy cập camera trước khi bắt đầu!");
+            }
+        };
+
+        // Hàm quay lại trang trước
+        window.goBack = function() {
+            window.location.href = 'home.html'; // Chuyển hướng về trang chủ
+        };
+
+        // Khởi động camera khi trang được tải
+        window.onload = startCamera;
+    </script>
+
     <style>
+        /* CSS ở đây */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -14,23 +101,27 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            overflow: hidden; /* Ngăn không cho cuộn */
+            overflow: hidden;
         }
+
         .navbar {
             background-color: #333;
             color: white;
             padding: 15px;
             text-align: center;
         }
+
         .navbar a {
             color: white;
             text-decoration: none;
             padding: 14px 20px;
             display: inline-block;
         }
+
         .navbar a:hover {
             background-color: #575757;
         }
+
         .container {
             display: flex;
             justify-content: space-between;
@@ -41,60 +132,67 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             flex-grow: 1;
             position: relative;
-            overflow: auto; /* Cho phép cuộn bên trong nếu cần */
+            overflow: auto;
         }
+
         .content {
             flex: 1;
         }
+
         h1 {
             color: #333;
         }
+
         p {
             color: #666;
         }
+
         ul {
             margin: 10px 0;
             padding-left: 20px;
         }
+
         .btn-group {
             margin-top: 20px;
         }
-        .start-btn, .back-btn {
+
+        .start-btn,
+        .back-btn {
             padding: 10px 20px;
             margin: 5px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
         }
+
         .start-btn {
             background-color: #28a745;
             color: white;
         }
-        .start-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
+
         .back-btn {
             background-color: #007bff;
             color: white;
         }
+
         .camera-frame {
-            position: fixed; /* Đặt khung camera cố định */
-            top: 20px; /* Vị trí từ trên xuống */
-            right: 20px; /* Vị trí từ bên phải */
-            width: 300px; /* Kích thước khung camera */
+            position: relative;
+            width: 300px;
             height: 200px;
             border: 1px solid #ccc;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             background-color: black;
-            z-index: 1000; /* Đảm bảo khung camera nằm trên nội dung khác */
+            overflow: hidden;
         }
+
         video {
             width: 100%;
             height: 100%;
             border-radius: 10px;
+            object-fit: cover;
         }
+
         .footer {
             text-align: center;
             padding: 10px;
@@ -105,13 +203,15 @@
             width: 100%;
             margin-top: auto;
         }
-        /* Ẩn camera trên thiết bị di động */
-        @media (max-width: 768px) {
+
+        /* Ẩn khung camera trên thiết bị di động */
+        @media (max-width: 600px) {
             .camera-frame {
-                display: none; /* Ẩn khung camera */
+                display: none;
             }
         }
     </style>
+
 </head>
 
 <body>
@@ -121,29 +221,29 @@
     </div>
 
     <div class="container">
-        <!-- Nội dung bài thi -->
         <div class="content">
             <h1>Điều lệ trước khi thi</h1>
             <p>Thời gian làm bài: 4 phút</p>
             <p>Tổng số câu hỏi: 20 câu</p>
+            <p id="user-info">Người dùng: Đang tải...</p>
             <p>Nội quy thi:</p>
             <ul>
                 <li>Không được sử dụng tài liệu.</li>
                 <li>Trả lời tất cả các câu hỏi.</li>
                 <li>Không được rời khỏi bài thi giữa chừng.</li>
-                <li>Đóng camera bài thi sẽ tự động nộp.</li>
+                <li>Khi thi thiết bị thi phải có kết nối camera.</li>
+                <li>Phải cho phép truy cập camera mới ấn bắt đầu làm bài được.</li>
+                <li>Đóng camera, chuyển trang, bài thi sẽ tự động nộp.</li>
             </ul>
 
-            <!-- Nút bấm điều khiển -->
             <div class="btn-group">
-                <button class="start-btn" id="start-button" disabled onclick="startQuiz()">Bắt đầu làm bài</button>
+                <button class="start-btn" id="start-button" onclick="startQuiz()" disabled>Bắt đầu làm bài</button>
                 <button class="back-btn" onclick="goBack()">Quay lại</button>
             </div>
         </div>
 
-        <!-- Khung camera -->
         <div class="camera-frame">
-            <video id="video" autoplay></video>
+            <video id="video" autoplay playsinline></video>
         </div>
     </div>
 
@@ -151,60 +251,6 @@
         <p>Design by GKNM</p>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.9.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.9.0/firebase-auth-compat.js"></script>
-
-    <script>
-        // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
-            authDomain: "luutru-2fc0c.firebaseapp.com",
-            projectId: "luutru-2fc0c",
-            storageBucket: "luutru-2fc0c.appspot.com",
-            messagingSenderId: "447316566416",
-            appId: "1:447316566416:web:8ea9562ef016528232d315",
-            measurementId: "G-QLE52FWS60"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-
-        // Kiểm tra đăng nhập Firebase
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                // Người dùng đã đăng nhập
-                startCamera();
-            } else {
-                // Chưa đăng nhập, chuyển hướng về trang đăng nhập
-                alert('Bạn cần đăng nhập để truy cập trang này.');
-                window.location.href = './login.html';
-            }
-        });
-
-        function startCamera() {
-            // Yêu cầu quyền truy cập camera
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then((stream) => {
-                    // Hiển thị khung camera và kích hoạt nút bắt đầu làm bài
-                    const videoElement = document.getElementById('video');
-                    videoElement.srcObject = stream;
-                    videoElement.style.display = 'block';
-                    document.getElementById("start-button").disabled = false;
-                })
-                .catch((error) => {
-                    // Nếu không thể truy cập camera, thông báo lỗi và khóa nút bắt đầu
-                    console.error("Error accessing the camera: ", error);
-                    alert("Không thể truy cập vào camera. Vui lòng kiểm tra quyền.");
-                    document.getElementById("start-button").disabled = true; // Đảm bảo không thể bắt đầu làm bài
-                });
-        }
-
-        function startQuiz() {
-            window.location.href = 'test.html';
-        }
-
-        function goBack() {
-            window.location.href = 'home.html';
-        }
-    </script>
 </body>
+
 </html>

@@ -162,7 +162,7 @@
                 <th>Điểm Thi</th>
             </tr>
         </thead>
-        <tbody id="quizResultsTableBody">
+        <tbody id="quizzesTableBody">
             <!-- Quiz results will be inserted here -->
         </tbody>
     </table>
@@ -206,7 +206,7 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 await displayLoginHistory(user.uid);
-                await displayQuizResults(user.uid);
+                await displayquizzes(user.uid);  // Correct function name
                 await displayActivityHistory(user.uid);
             } else {
                 alert('Bạn cần đăng nhập để xem lịch sử.');
@@ -237,13 +237,14 @@
             });
         }
 
-        async function displayQuizResults(userId) {
+        // Corrected function name to display quiz results
+        async function displayquizzes(userId) {
             try {
-                const quizResultsRef = collection(db, "quizResults");
-                const q = query(quizResultsRef, where("userId", "==", userId));
+                const quizzesRef = collection(db, "quizzes");
+                const q = query(quizzesRef, where("userId", "==", userId));
                 const querySnapshot = await getDocs(q);
 
-                const tableBody = document.getElementById('quizResultsTableBody');
+                const tableBody = document.getElementById('quizzesTableBody');
                 tableBody.innerHTML = '';
 
                 if (querySnapshot.empty) {

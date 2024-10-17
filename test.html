@@ -1,6 +1,5 @@
 <!DOCTYPE HTML>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -49,17 +48,6 @@
             margin-bottom: 10px;
         }
 
-        .answers label {
-            display: block;
-            font-size: 16px;
-            margin-bottom: 8px;
-            cursor: pointer;
-        }
-
-        .answers input {
-            margin-right: 10px;
-        }
-
         .submit-btn,
         .cert-btn,
         .back-button {
@@ -79,22 +67,22 @@
 
         .submit-btn:hover,
         .cert-btn:hover,
-        .back-btn:hover {
+        .back-button:hover {
             background-color: #285e61;
         }
 
         .camera-frame {
-            position: fixed; /* Giữ cố định */
-            top: 20px; /* Điều chỉnh vị trí */
-            right: 20px; /* Đặt ở góc phải */
+            position: fixed;
+            top: 20px;
+            right: 20px;
             width: 200px;
             height: 150px;
             border: 2px solid #2c7a7b;
             border-radius: 10px;
             overflow: hidden;
             background-color: black;
-            z-index: 1000; /* Đảm bảo nó nằm trên nội dung khác */
-            cursor: move; /* Hiển thị con trỏ di chuyển */
+            z-index: 1000;
+            cursor: move;
         }
 
         video {
@@ -137,30 +125,6 @@
             font-weight: bold;
             margin-bottom: 20px;
         }
-
-        /* Responsive Design */
-        @media screen and (max-width: 768px) {
-            .quiz-container {
-                padding: 15px;
-            }
-
-            .submit-btn {
-                font-size: 16px;
-            }
-
-            h1 {
-                font-size: 24px;
-            }
-
-            .question p {
-                font-size: 16px;
-            }
-
-            .camera-frame {
-                width: 150px; /* Kích thước nhỏ hơn trên di động */
-                height: 100px; /* Kích thước nhỏ hơn trên di động */
-            }
-        }
     </style>
 </head>
 
@@ -172,13 +136,13 @@
         <h1>Bài thi trắc nghiệm Lịch sử</h1>
         <h2>Bạn phải đúng 15/20 câu</h2>
         <h2>Mới được nhận chứng chỉ</h2>
-        
+
         <p class="username" id="username">Tên người dùng: Đang tải...</p>
         <div id="timer" class="timer">Thời gian: 04:00</div>
         <form id="quizForm"></form>
         <button type="button" class="submit-btn" onclick="submitQuiz()">Nộp bài</button>
         <div id="message" class="message">Cảm ơn bạn đã hoàn thành bài thi!</div>
-        <button type="button" class="cert-btn" id="certBtn" style="display: none;" onclick="getCertificate()">Nhận chứng chỉ</button>
+        <button class="cert-btn" id="certBtn" style="display: none;" onclick="getCertificate()">Nhận chứng chỉ</button>
         <button class="back-button" onclick="goBack()">Quay lại</button>
     </div>
     <div class="footer">
@@ -189,9 +153,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.8.0/firebase-storage-compat.js"></script>
 
     <script>
-        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
             authDomain: "luutru-2fc0c.firebaseapp.com",
@@ -202,176 +166,196 @@
             measurementId: "G-QLE52FWS60"
         };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const storage = firebase.storage();
 
-        let timerValue = 240;
-        const timerElement = document.getElementById('timer');
-        const message = document.getElementById('message');
-        const quizForm = document.getElementById('quizForm');
-        const certBtn = document.getElementById('certBtn');
-        const usernameElement = document.getElementById('username');
+        let localStream;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let quizDocRef;
+        let timerValue = 240;  // 4 minutes (240 seconds)
         let selectedQuestions = [];
-        let username = "";
-        let cameraActive = true;
+        let tabSwitchCount = 0;
+        const maxTabSwitches = 4;
 
-        const questionBank = [
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người đứng đầu chính phủ Việt Nam trong giai đoạn kháng chiến chống Pháp?', options: ['Hồ Chí Minh', 'Lê Duẩn', 'Trường Chinh', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ ba?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa Yên Thế lần thứ hai?', options: ['Đề Thám', 'Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Huệ'], answer: 'Đề Thám' },
-    { question: 'Chiến dịch nào đã diễn ra vào tháng 5 năm 1954?', options: ['Điện Biên Phủ', 'Hà Nội', 'Củ Chi', 'Nam Bộ'], answer: 'Điện Biên Phủ' },
-    { question: 'Ai là người sáng lập Đảng Cộng sản Việt Nam?', options: ['Hồ Chí Minh', 'Lê Duẩn', 'Trường Chinh', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào Việt Nam thống nhất đất nước?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là Tổng tư lệnh quân đội nhân dân Việt Nam trong cuộc kháng chiến chống Mỹ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh', 'Lê Duẩn'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Cuộc kháng chiến chống Mỹ bắt đầu từ năm nào?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
-    { question: 'Năm nào diễn ra Hội nghị Geneva?', options: ['1954', '1956', '1958', '1960'], answer: '1954' },
-    { question: 'Ai là người lãnh đạo cuộc khởi nghĩa tháng Tám năm 1945?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc cách mạng tháng Tám?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
-    { question: 'Ai là người ký hiệp định Paris năm 1973?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
-    { question: 'Nước nào đã thả quả bom nguyên tử đầu tiên xuống Hiroshima?', options: ['Mỹ', 'Liên Xô', 'Nhật Bản', 'Đức'], answer: 'Mỹ' },
-    { question: 'Năm 1789, cuộc Cách mạng Pháp bắt đầu tại thành phố nào?', options: ['Paris', 'London', 'Berlin', 'Roma'], answer: 'Paris' },
-    { question: 'Ai là nữ hoàng nổi tiếng của Ai Cập cổ đại?', options: ['Cleopatra', 'Nefertiti', 'Hatshepsut', 'Isis'], answer: 'Cleopatra' },
-    { question: 'Năm nào diễn ra cuộc tổng tấn công Tết Mậu Thân?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
-    { question: 'Ai là người viết bản Tuyên ngôn độc lập của Việt Nam?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Cuộc kháng chiến chống Mỹ kết thúc vào năm nào?', options: ['1973', '1975', '1976', '1977'], answer: '1975' },
-    { question: 'Năm nào Việt Nam gia nhập Liên Hợp Quốc?', options: ['1975', '1976', '1977', '1978'], answer: '1977' },
-    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống thực dân Pháp ở Bắc Kỳ?', options: ['Hồ Chí Minh', 'Nguyễn Huệ', 'Đề Thám', 'Lê Duẩn'], answer: 'Đề Thám' },
-    { question: 'Năm nào diễn ra cuộc chiến tranh biên giới phía Bắc?', options: ['1979', '1980', '1981', '1982'], answer: '1979' },
-    { question: 'Ai là người lãnh đạo cuộc khởi nghĩa chống thực dân Pháp ở miền Nam?', options: ['Hồ Chí Minh', 'Nguyễn Văn Linh', 'Trần Văn Giàu', 'Lê Duẩn'], answer: 'Trần Văn Giàu' },
-    { question: 'Ai là tác giả của tác phẩm "Tuyên ngôn độc lập"?', options: ['Hồ Chí Minh', 'Tố Hữu', 'Chế Lan Viên', 'Xuân Diệu'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra chiến dịch Điện Biên Phủ?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
-    { question: 'Ai là người ký hiệp định Geneva?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Mỹ cứu nước?', options: ['1954', '1965', '1975', '1976'], answer: '1965' },
-    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
-    { question: 'Ai là Tổng thống đầu tiên của Việt Nam Cộng Hòa?', options: ['Nguyễn Văn Thiệu', 'Ngô Đình Diệm', 'Trần Văn Hương', 'Lê Văn Viễn'], answer: 'Ngô Đình Diệm' },
-    { question: 'Năm nào diễn ra cuộc tấn công vào Huế?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
-    { question: 'Chiến tranh Việt Nam diễn ra từ năm nào đến năm nào?', options: ['1954-1975', '1950-1975', '1954-1970', '1955-1975'], answer: '1954-1975' },
-    { question: 'Ai là người lãnh đạo cuộc tổng tấn công Tết Mậu Thân?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Năm nào Việt Nam ký hiệp định Paris?', options: ['1973', '1974', '1975', '1976'], answer: '1973' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ nhất?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
-    { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa Bắc Sơn?', options: ['Đề Thám', 'Hồ Chí Minh', 'Nguyễn Ái Quốc', 'Võ Nguyên Giáp'], answer: 'Nguyễn Ái Quốc' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Mỹ ở miền Nam?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
-    { question: 'Ai là người ký hiệp định đình chiến tại Bác', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
-    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Sài Gòn?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là lãnh đạo của Việt Nam trong cuộc kháng chiến chống Mỹ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Lê Duẩn' },
-    { question: 'Cuộc chiến tranh Việt Nam kết thúc vào năm nào?', options: ['1973', '1975', '1976', '1977'], answer: '1975' },
-    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống thực dân Pháp ở Nam Bộ?', options: ['Hồ Chí Minh', 'Nguyễn Văn Linh', 'Trần Văn Giàu', 'Lê Duẩn'], answer: 'Trần Văn Giàu' },
-    { question: 'Năm nào diễn ra chiến dịch Hồ Chí Minh?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là Tổng tư lệnh trong trận Điện Biên Phủ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh', 'Lê Duẩn'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Năm nào diễn ra chiến dịch tổng tấn công Tết Mậu Thân?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
-    { question: 'Ai là người viết bản Tuyên ngôn độc lập của Việt Nam?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Cuộc kháng chiến chống Pháp ở Việt Nam kết thúc vào năm nào?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
-    { question: 'Năm nào diễn ra cuộc chiến tranh biên giới Việt - Trung?', options: ['1979', '1980', '1981', '1982'], answer: '1979' },
-    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Sài Gòn?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là Tổng thống đầu tiên của Việt Nam Cộng Hòa?', options: ['Nguyễn Văn Thiệu', 'Ngô Đình Diệm', 'Trần Văn Hương', 'Lê Văn Viễn'], answer: 'Ngô Đình Diệm' },
-    { question: 'Năm nào Việt Nam giành được độc lập?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
-    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Mỹ ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc chiến tranh Việt Nam?', options: ['1954-1975', '1960-1975', '1950-1975', '1965-1975'], answer: '1954-1975' },
-    { question: 'Ai là người ký hiệp định đình chiến tại Bác?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ nhất?', options: ['1945', '1946', '1947', '1948'], answer: '1945' },
-    { question: 'Ai là người đã lãnh đạo cuộc khởi nghĩa Bắc Sơn?', options: ['Đề Thám', 'Hồ Chí Minh', 'Nguyễn Ái Quốc', 'Võ Nguyên Giáp'], answer: 'Nguyễn Ái Quốc' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống thực dân Pháp lần thứ hai?', options: ['1945', '1946', '1947', '1948'], answer: '1946' },
-    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Nam?', options: ['Hồ Chí Minh', 'Nguyễn Văn Linh', 'Trần Văn Giàu', 'Lê Duẩn'], answer: 'Trần Văn Giàu' },
-    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Huế?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
-    { question: 'Ai là người ký hiệp định Paris?', options: ['Hồ Chí Minh', 'Lê Đức Thọ', 'Nguyễn Văn Thiệu', 'Trường Chinh'], answer: 'Lê Đức Thọ' },
-    { question: 'Năm nào diễn ra cuộc kháng chiến chống Mỹ ở miền Nam?', options: ['1954', '1960', '1965', '1975'], answer: '1965' },
-    { question: 'Ai là người đã lãnh đạo cuộc tổng tấn công Tết Mậu Thân?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Năm nào diễn ra chiến dịch Hồ Chí Minh?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là Tổng tư lệnh trong trận Điện Biên Phủ?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Nguyễn Văn Linh', 'Lê Duẩn'], answer: 'Võ Nguyên Giáp' },
-    { question: 'Năm nào diễn ra cuộc tổng tấn công Tết Mậu Thân?', options: ['1968', '1969', '1970', '1971'], answer: '1968' },
-    { question: 'Ai là người viết bản Tuyên ngôn độc lập của Việt Nam?', options: ['Hồ Chí Minh', 'Trường Chinh', 'Lê Duẩn', 'Nguyễn Văn Linh'], answer: 'Hồ Chí Minh' },
-    { question: 'Cuộc kháng chiến chống Pháp ở Việt Nam kết thúc vào năm nào?', options: ['1954', '1955', '1956', '1957'], answer: '1954' },
-    { question: 'Năm nào diễn ra cuộc chiến tranh biên giới Việt - Trung?', options: ['1979', '1980', '1981', '1982'], answer: '1979' },
-    { question: 'Ai là người lãnh đạo cuộc kháng chiến chống Pháp ở miền Bắc?', options: ['Hồ Chí Minh', 'Võ Nguyên Giáp', 'Lê Duẩn', 'Trường Chinh'], answer: 'Hồ Chí Minh' },
-    { question: 'Năm nào diễn ra cuộc tổng tấn công vào Sài Gòn?', options: ['1975', '1976', '1977', '1978'], answer: '1975' },
-    { question: 'Ai là Tổng thống đầu tiên của Việt Nam Cộng Hòa?', options: ['Nguyễn Văn Thiệu', 'Ngô Đình Diệm', 'Trần Văn Hương', 'Lê Văn Viễn'], answer: 'Ngô Đình Diệm' },
-    { question: 'Năm nào Việt Nam giành được độc lập?', options: ['1945', '1946', '1947', '1948'], answer: '1945' }
-];
+        // DOM Elements
+        const timerElement = document.getElementById('timer');
+        const usernameElement = document.getElementById('username');
+        const quizForm = document.getElementById('quizForm');
+        const message = document.getElementById('message');
+        const certBtn = document.getElementById('certBtn');
 
-        function getUsername(userId) {
-            db.collection("users").doc(userId).get().then((doc) => {
+        // Fetch user name from Firestore
+        async function getUsername(userId) {
+            try {
+                const doc = await db.collection("users").doc(userId).get();
                 if (doc.exists) {
                     const fullName = doc.data().fullName;
-                    usernameElement.textContent = `Họ và tên: "${fullName}"`;
-                    username = fullName;
+                    usernameElement.textContent = `Họ và tên: ${fullName}`;
+                    return fullName;
                 } else {
                     console.log("Không tìm thấy tài liệu người dùng!");
+                    return null;
                 }
-            }).catch((error) => {
+            } catch (error) {
                 console.log("Lỗi khi lấy tài liệu:", error);
+                return null;
+            }
+        }
+
+        // Start quiz and create Firestore document
+        async function startQuiz() {
+            firebase.auth().onAuthStateChanged(async (user) => {
+                if (user) {
+                    const userId = user.uid;
+                    const fullName = await getUsername(userId);
+
+                    // Create a Firestore document when the quiz starts
+                    const startTime = new Date();
+                    quizDocRef = db.collection('quizzes').doc(); // Create a new document in 'quizzes'
+
+                    await quizDocRef.set({
+                        fullName: fullName,
+                        userId: userId,
+                        startTime: startTime,
+                        score: null,
+                        video: null,  // Will be updated after video upload
+                        endTime: null
+                    });
+
+                    displayQuestions();  // Show questions after the camera starts
+                    startTimer();  // Start the timer
+                } else {
+                    console.log("Người dùng không đăng nhập.");
+                    window.location.href = "login.html";  // Redirect to login page if needed
+                }
             });
         }
-        function goBack() {
-            window.location.href = 'home.html'; // Chuyển hướng về trang chủ
+
+        // Start timer for the quiz
+        function startTimer() {
+            const interval = setInterval(() => {
+                const minutes = Math.floor(timerValue / 60);
+                const seconds = timerValue % 60;
+                timerElement.textContent = `Thời gian: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                timerValue--;
+
+                if (timerValue < 0) {
+                    clearInterval(interval);
+                    alert('Hết thời gian làm bài! Bài thi sẽ được nộp.');
+                    submitQuiz();
+                }
+            }, 1000);
         }
 
-        firebase.auth().onAuthStateChanged((user) => {
-            if (user) {
-                const userId = user.uid;
-                getUsername(userId);
-                startTimer();
-                displayQuestions();
-                startCamera();
-            } else {
-                window.location.href = 'login.html';
-            }
-        });
-
+        // Start camera and recording
         function startCamera() {
             navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    document.getElementById('camera').srcObject = stream;
-                    monitorCamera(stream);
+                .then((stream) => {
+                    const videoElement = document.getElementById('camera');
+                    videoElement.srcObject = stream;
+                    localStream = stream;
+
+                    startRecording(stream);
+
+                    // Monitor if the camera is turned off
+                    localStream.getVideoTracks()[0].onended = () => {
+                        alert('Camera đã bị tắt. Hệ thống sẽ dừng bài thi. Vui lòng bật camera để tiếp tục.');
+                        stopRecording();
+                        // Dừng bài thi và yêu cầu bật lại camera
+                        startCamera();
+                    };
                 })
-                .catch(err => {
-                    console.error("Lỗi khi truy cập camera: ", err);
-                    alert("Không thể truy cập camera. Vui lòng kiểm tra thiết bị của bạn.");
-                    submitQuiz(); // Tự động nộp bài khi không có quyền truy cập camera
+                .catch((error) => {
+                    alert('Không thể truy cập camera. Vui lòng bật quyền truy cập.');
+                    console.error('Lỗi camera:', error);
                 });
         }
 
-        function monitorCamera(stream) {
-            const videoTracks = stream.getVideoTracks();
-            videoTracks[0].addEventListener('ended', () => {
-                handleCameraOff();
+        // Start recording video
+        function startRecording(stream) {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = function(event) {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+            mediaRecorder.start();
+        }
+
+        // Stop recording and upload video to Firebase
+        async function stopRecording() {
+            mediaRecorder.stop();
+            return new Promise((resolve, reject) => {
+                mediaRecorder.onstop = async function() {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const videoFileName = `quiz_${quizDocRef.id}_${Date.now()}.webm`;
+                    const storageRef = storage.ref(`videos/${videoFileName}`);
+
+                    try {
+                        const uploadTaskSnapshot = await storageRef.put(blob);
+                        const videoURL = await uploadTaskSnapshot.ref.getDownloadURL();
+
+                        // Update Firestore with the video URL
+                        await quizDocRef.update({
+                            video: videoURL
+                        });
+
+                        console.log('Video đã được lưu thành công với URL:', videoURL);
+                        resolve(videoURL);
+                    } catch (error) {
+                        console.error('Lỗi khi tải video lên Firebase Storage:', error);
+                        reject(error);
+                    }
+                };
             });
         }
 
-        function handleCameraOff() {
-            cameraActive = false; // Đánh dấu camera đã bị tắt
-            alert("Camera đã bị tắt! Bài thi sẽ tự động nộp.");
-            submitQuiz(); // Tự động nộp bài ngay khi camera bị tắt
-        }
+        // Submit quiz and stop recording
+        async function submitQuiz() {
+            // Stop recording and wait for the video to finish uploading
+            await stopRecording();
 
-        function saveQuizResult(correctCount) {
-            const userId = firebase.auth().currentUser.uid;
-            db.collection("quizResults").add({
-                userId: userId,
-                fullName: username,
-                score: correctCount,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                console.log("Quiz result successfully written!");
-            }).catch((error) => {
-                console.error("Error writing quiz result: ", error);
+            // Handle quiz submission logic (checking answers, updating Firestore)
+            let correctCount = 0;
+            const formData = new FormData(quizForm);
+
+            formData.forEach((value, key) => {
+                const questionIndex = parseInt(key.slice(1)) - 1;
+                if (selectedQuestions[questionIndex].answer === value) {
+                    correctCount++;
+                }
             });
-        }
 
-        function getRandomQuestions(n) {
-            const shuffled = questionBank.sort(() => 0.5 - Math.random());
-            return shuffled.slice(0, n);
-        }
+            const inputs = quizForm.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.disabled = true;
+            });
 
-        function displayQuestions() {
-            const quizForm = document.getElementById("quizForm");
-            if (!quizForm) {
-                console.error("Không tìm thấy phần tử #quizForm");
-                return;
+            message.style.display = 'block';
+            message.textContent = `Cảm ơn bạn đã hoàn thành bài thi! Bạn trả lời đúng ${correctCount}/20 câu.`;
+
+            const endTime = new Date();
+
+            if (quizDocRef) {
+                await quizDocRef.update({
+                    score: correctCount,
+                    endTime: endTime
+                });
             }
 
+            if (correctCount >= 15) {
+                certBtn.style.display = 'block';
+            } else {
+                setTimeout(() => {
+                    window.location.href = 'home.html';
+                }, 3000);
+            }
+        }
+
+        // Display quiz questions
+        function displayQuestions() {
             selectedQuestions = getRandomQuestions(20);
             selectedQuestions.forEach((q, index) => {
                 const questionDiv = document.createElement('div');
@@ -397,75 +381,68 @@
             });
         }
 
-        function startTimer() {
-            const interval = setInterval(() => {
-                const minutes = Math.floor(timerValue / 60);
-                const seconds = timerValue % 60;
-                timerElement.textContent = `Thời gian: 0${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                timerValue--;
-
-                if (timerValue < 0) {
-                    clearInterval(interval);
-                    submitQuiz();
-                }
-            }, 1000);
+        // Get random questions
+        function getRandomQuestions(n) {
+            const questionBank = [
+                { question: "Ai là người sáng lập ra nhà nước Đại Cồ Việt?", options: ["Đinh Tiên Hoàng", "Lý Thái Tổ", "Trần Nhân Tông", "Lê Thái Tổ"], answer: "Đinh Tiên Hoàng" },
+                { question: "Trận chiến Bạch Đằng diễn ra vào năm nào?", options: ["938", "939", "1288", "1287"], answer: "938" },
+                { question: "Nhà Trần đã chiến thắng quân Mông - Nguyên mấy lần?", options: ["2 lần", "3 lần", "4 lần", "5 lần"], answer: "3 lần" },
+                { question: "Ai là vị tướng nổi tiếng trong cuộc kháng chiến chống quân Nguyên dưới triều Trần?", options: ["Trần Hưng Đạo", "Trần Quang Khải", "Lý Thường Kiệt", "Ngô Quyền"], answer: "Trần Hưng Đạo" },
+                { question: "Quốc gia nào đã đô hộ Việt Nam trong giai đoạn từ 1858 đến 1945?", options: ["Pháp", "Trung Quốc", "Mỹ", "Nhật Bản"], answer: "Pháp" },
+                { question: "Hiệp định nào đã chấm dứt chiến tranh giữa Việt Nam và Pháp vào năm 1954?", options: ["Hiệp định Giơ-ne-vơ", "Hiệp định Paris", "Hiệp định Versailles", "Hiệp định Potsdam"], answer: "Hiệp định Giơ-ne-vơ" },
+                { question: "Chiến thắng Điện Biên Phủ diễn ra vào năm nào?", options: ["1954", "1945", "1975", "1968"], answer: "1954" },
+                { question: "Vị vua nào đã ban bố Chiếu Dời Đô, chuyển kinh đô từ Hoa Lư về Thăng Long?", options: ["Lý Thái Tổ", "Đinh Bộ Lĩnh", "Trần Nhân Tông", "Lê Lợi"], answer: "Lý Thái Tổ" },
+                { question: "Phong trào Cần Vương được phát động bởi ai?", options: ["Hàm Nghi", "Duy Tân", "Phan Bội Châu", "Nguyễn Trường Tộ"], answer: "Hàm Nghi" },
+                { question: "Cuộc cách mạng tháng Tám năm 1945 đã lật đổ chế độ nào ở Việt Nam?", options: ["Phát xít Nhật", "Thực dân Pháp", "Chế độ phong kiến", "Quân đội Mỹ"], answer: "Chế độ phong kiến" },
+                { question: "Chiến dịch Hồ Chí Minh diễn ra vào năm nào?", options: ["1975", "1954", "1968", "1945"], answer: "1975" },
+                { question: "Ai là người lãnh đạo cuộc khởi nghĩa Lam Sơn chống quân Minh?", options: ["Lê Lợi", "Nguyễn Huệ", "Ngô Quyền", "Trần Hưng Đạo"], answer: "Lê Lợi" },
+                { question: "Tổ chức nào lãnh đạo nhân dân Việt Nam trong cuộc Tổng khởi nghĩa tháng 8 năm 1945?", options: ["Việt Minh", "Đảng Cộng sản Việt Nam", "Quốc dân Đảng", "Mặt trận Tổ quốc"], answer: "Việt Minh" },
+                { question: "Việt Nam thống nhất đất nước vào năm nào?", options: ["1975", "1945", "1954", "1968"], answer: "1975" },
+                { question: "Chiếu Cần Vương được ban hành bởi vua nào?", options: ["Hàm Nghi", "Duy Tân", "Minh Mạng", "Tự Đức"], answer: "Hàm Nghi" },
+                { question: "Cuộc cách mạng công nghiệp lần thứ nhất bắt đầu ở đâu?", options: ["Anh", "Pháp", "Mỹ", "Đức"], answer: "Anh" },
+                { question: "Ai là người lãnh đạo cuộc khởi nghĩa Tây Sơn chống lại cả vua Lê và chúa Trịnh?", options: ["Nguyễn Huệ", "Nguyễn Ánh", "Trần Hưng Đạo", "Lê Lợi"], answer: "Nguyễn Huệ" },
+                { question: "Hội nghị nào đã quyết định chia Việt Nam thành hai miền vào năm 1954?", options: ["Hội nghị Genève", "Hội nghị Versailles", "Hội nghị Yalta", "Hội nghị Potsdam"], answer: "Hội nghị Genève" },
+                { question: "Ai là vị tổng thống đầu tiên của nước Việt Nam Dân chủ Cộng hòa?", options: ["Hồ Chí Minh", "Trần Trọng Kim", "Ngô Đình Diệm", "Phan Bội Châu"], answer: "Hồ Chí Minh" },
+                { question: "Cuộc chiến tranh Đông Dương lần thứ hai kết thúc vào năm nào?", options: ["1975", "1954", "1968", "1945"], answer: "1975" }
+            ];
+            // Tiếp tục từ phần trước
+            const shuffledQuestions = questionBank.sort(() => 0.5 - Math.random());
+            return shuffledQuestions.slice(0, n);
         }
 
-        function submitQuiz() {
-            let correctCount = 0;
-            const formData = new FormData(quizForm);
-
-            formData.forEach((value, key) => {
-                const questionIndex = parseInt(key.slice(1)) - 1;
-                if (selectedQuestions[questionIndex].answer === value) {
-                    correctCount++;
-                }
-            });
-
-            const inputs = quizForm.querySelectorAll('input');
-            inputs.forEach(input => {
-                input.disabled = true;
-            });
-
-            message.style.display = 'block';
-            message.textContent = `Cảm ơn bạn đã hoàn thành bài thi! Bạn trả lời đúng ${correctCount}/20 câu.`;
-
-            if (correctCount >= 15) {
-                certBtn.style.display = 'block';
-            } else {
-                setTimeout(() => {
-                    window.location.href = 'home.html';
-                }, 3000);
-            }
-
-            saveQuizResult(correctCount);
-        }
-
+        // Nhận chứng chỉ
         function getCertificate() {
-            window.location.href = 'chungchi.html';
+            const score = certBtn.dataset.score;
+            window.location.href = `certificate.html?score=${score}`;
         }
 
-        // Drag and Drop for Camera
-        const cameraFrame = document.getElementById('cameraFrame');
-        let offsetX, offsetY;
+        // Quay lại trang chủ
+        function goBack() {
+            window.location.href = 'home.html';
+        }
 
-        cameraFrame.addEventListener('mousedown', function (e) {
-            offsetX = e.clientX - cameraFrame.getBoundingClientRect().left;
-            offsetY = e.clientY - cameraFrame.getBoundingClientRect().top;
-            document.addEventListener('mousemove', dragCameraFrame);
-            document.addEventListener('mouseup', stopDragging);
+        // Xử lý sự kiện chuyển tab
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                tabSwitchCount++;
+
+                if (tabSwitchCount === 1) {
+                    alert('Hệ thống phát hiện bạn đã chuyển tab. Vui lòng không chuyển tab khi làm bài.');
+                } else if (tabSwitchCount >= maxTabSwitches) {
+                    alert('Bạn đã chuyển tab quá nhiều lần. Bài thi của bạn sẽ bị dừng và bạn sẽ được chuyển về trang chủ.');
+                    submitQuiz();  // Nộp bài trước khi về trang chủ
+                    setTimeout(() => {
+                        window.location.href = 'home.html';
+                    }, 2000);
+                }
+            }
         });
 
-        function dragCameraFrame(e) {
-            cameraFrame.style.left = (e.clientX - offsetX) + 'px';
-            cameraFrame.style.top = (e.clientY - offsetY) + 'px';
-        }
-
-        function stopDragging() {
-            document.removeEventListener('mousemove', dragCameraFrame);
-            document.removeEventListener('mouseup', stopDragging);
-        }
+        // Bắt đầu bài thi và camera khi trang tải
+        window.onload = function() {
+            startCamera();
+            startQuiz();
+        };
     </script>
 </body>
-
 </html>

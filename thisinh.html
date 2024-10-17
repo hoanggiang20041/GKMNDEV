@@ -1,0 +1,421 @@
+<!DOCTYPE HTML>
+<html lang="vi">
+
+<head>
+    <title>Trạng thái thí sinh</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    
+    <script type="module">
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
+            authDomain: "luutru-2fc0c.firebaseapp.com",
+            projectId: "luutru-2fc0c",
+            storageBucket: "luutru-2fc0c.appspot.com",
+            messagingSenderId: "447316566416",
+            appId: "1:447316566416:web:8ea9562ef016528232d315",
+            measurementId: "G-QLE52FWS60"
+        };
+
+        // Import Firebase libraries
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth();
+
+        // Hàm định dạng thời gian để chỉ lấy giờ và phút
+        function formatTime(date) {
+            return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Hàm hiển thị danh sách trạng thái của thí sinh
+        async function displayAllQuizStatuses() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    console.log(`User ID: ${user.uid}`);
+
+                    // Lắng nghe sự thay đổi dữ liệu trong bộ sưu tập 'quizzes'
+                    const quizzesCollection = collection(db, "quizzes");
+                    onSnapshot(quizzesCollection, (snapshot) => {
+                        const statusContainer = document.getElementById('status-container');
+                        statusContainer.innerHTML = ''; // Xóa nội dung cũ
+
+                        const userStatuses = {}; // Để lưu trữ trạng thái mới nhất của mỗi userId
+
+                        snapshot.forEach((docSnapshot) => {
+                            const quizData = docSnapshot.data();
+                            const userId = quizData.userId || 'Không rõ';
+                            const startTime = quizData.startTime ? quizData.startTime.toDate() : null;
+                            const endTime = quizData.endTime ? quizData.endTime.toDate() : null;
+
+                            // Kiểm tra xem đã có userId này hay chưa
+                            if (!userStatuses[userId]) {
+                                // Nếu chưa, thêm một mục mới
+                                userStatuses[userId] = { docId: docSnapshot.id, ...quizData };
+                            } else {
+                                // Nếu đã có, cập nhật nếu tài liệu này mới hơn
+                                const existingStatus = userStatuses[userId];
+                                
+                                // So sánh thời gian, ưu tiên `endTime` trước, nếu không thì `startTime`
+                                const existingTime = existingStatus.endTime ? existingStatus.endTime.toDate() : existingStatus.startTime.toDate();
+                                const newTime = endTime || startTime;
+
+                                if (newTime > existingTime) {
+                                    userStatuses[userId] = { docId: docSnapshot.id, ...quizData };
+                                }
+                            }
+                        });
+
+                        // Sau khi đã có trạng thái mới nhất của tất cả userId, hiển thị chúng
+                        Object.values(userStatuses).forEach((quizData) => {
+                            const fullName = quizData.fullName || 'Chưa rõ';
+                            const startTime = quizData.startTime ? quizData.startTime.toDate() : null;
+                            const endTime = quizData.endTime ? quizData.endTime.toDate() : null;
+                            const userId = quizData.userId || 'Không rõ';
+                            const videoUrl = quizData.video || null; // URL video từ dữ liệu
+
+                            // Tạo khung hiển thị cho mỗi thí sinh
+                            const userDiv = document.createElement('div');
+                            userDiv.classList.add('user-status');
+                            userDiv.setAttribute('id', `user-${userId}`);
+
+                            let status = '';
+
+                            // Kiểm tra trạng thái mới nhất
+                            if (endTime) {
+                                status = `Đã thi xong vào lúc ${formatTime(endTime)}`;
+                            } else if (startTime) {
+                                status = `Đang thi, bắt đầu vào lúc ${formatTime(startTime)}`;
+                            } else {
+                                status = 'Chưa rõ trạng thái';
+                            }
+
+                            userDiv.innerHTML = `
+                                <p><strong>Thí sinh:</strong> ${fullName} (ID: ${userId})</p>
+                                <p><strong>Trạng thái:</strong> ${status}</p>
+                            `;
+
+                            // Nút "Xem video" nếu có video
+                            if (endTime && videoUrl) {
+                                const videoButton = document.createElement('button');
+                                videoButton.innerText = 'Xem video';
+                                videoButton.classList.add('view-video-btn');
+                                videoButton.onclick = () => showVideo(videoUrl);
+                                userDiv.appendChild(videoButton);
+                            }
+
+                            // Nút "Xóa"
+                            const deleteButton = document.createElement('button');
+                            deleteButton.innerText = 'Xóa';
+                            deleteButton.classList.add('delete-btn');
+                            deleteButton.onclick = () => removeUserFromFirestore(quizData.docId, userId);
+                            userDiv.appendChild(deleteButton);
+
+                            statusContainer.appendChild(userDiv);
+                        });
+                    });
+                } else {
+                    console.log("Người dùng chưa đăng nhập.");
+                    window.location.href = 'login.html';
+                }
+            });
+        }
+
+        // Hàm hiển thị video khi nhấn nút "Xem video"
+        function showVideo(videoUrl) {
+            const videoElement = document.getElementById('stored-video');
+            const videoFrame = document.querySelector('.video-frame'); // Lấy khung video
+
+            videoElement.src = videoUrl; // Cập nhật URL cho video
+            videoFrame.style.display = 'block'; // Hiển thị khung video
+        }
+
+        // Hàm xóa thí sinh khỏi Firestore và giao diện
+        async function removeUserFromFirestore(docId, userId) {
+            try {
+                // Thực hiện xóa tài liệu từ Firestore
+                await deleteDoc(doc(db, "quizzes", docId));
+                console.log(`Thí sinh với ID: ${userId} đã bị xóa khỏi Firestore.`);
+
+                // Xóa khung của thí sinh khỏi giao diện
+                const userDiv = document.getElementById(`user-${userId}`);
+                if (userDiv) {
+                    userDiv.remove();
+                }
+            } catch (error) {
+                console.error("Lỗi khi xóa thí sinh:", error);
+            }
+        }
+
+        // Hàm kiểm tra thông tin đăng nhập
+        function checkLogin(event) {
+            event.preventDefault(); // Ngăn form submit
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Kiểm tra tài khoản và mật khẩu
+            if (username === 'admin@gknm.id.vn' && password === '868686') {
+                document.getElementById('login-container').style.display = 'none'; // Ẩn form đăng nhập
+                document.getElementById('main-content').style.display = 'flex';    // Hiển thị nội dung chính
+                displayAllQuizStatuses(); // Gọi hàm hiển thị trạng thái thí sinh
+            } else {
+                alert('Tài khoản hoặc mật khẩu không đúng!');
+            }
+        }
+
+        // Gọi hàm checkLogin khi trang tải
+        window.onload = () => {
+            document.getElementById('login-form').addEventListener('submit', checkLogin);
+        };
+    </script>
+
+<style>
+    /* Global Styles */
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    
+    h1 {
+        color: #333;
+    }
+    
+    /* Navbar Styles */
+    .navbar {
+        background-color: #333;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        position: fixed; /* Cố định thanh điều hướng ở đầu */
+        width: 100%; /* Đảm bảo thanh điều hướng chiếm toàn bộ chiều rộng */
+        top: 0;
+        z-index: 1000; /* Luôn hiện trên các nội dung khác */
+    }
+    
+    .navbar a {
+        color: white;
+        text-decoration: none;
+        padding: 14px 20px;
+        display: inline-block;
+    }
+    
+    .navbar a:hover {
+        background-color: #575757;
+    }
+    
+    /* Container Styles */
+    .container {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        padding: 20px;
+        background-color: white;
+        margin: 100px 20px 20px 20px; /* Thêm khoảng cách phía trên để không bị chèn với navbar */
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        flex-grow: 1;
+    }
+    
+    .content {
+        flex: 1;
+        margin-right: 20px;
+    }
+    
+    /* User Status Styles */
+    .user-status {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        width: 100%;
+        max-width: 600px;
+    }
+    
+    .status-info {
+        margin-top: 20px;
+        text-align: center;
+        max-height: 70vh;
+        overflow-y: auto;
+        width: 100%;
+    }
+    
+    /* Video Container Styles */
+    .video-container {
+        width: 300px;
+        height: auto;
+        padding: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        background-color: #f9f9f9;
+        border-radius: 10px;
+    }
+    
+    .video-frame {
+        width: 100%;
+        height: auto;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        background-color: black;
+        overflow: hidden;
+        display: none; /* Initially hide video frame */
+    }
+    
+    video {
+        width: 100%;
+        height: 100%;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+    
+    /* Button Styles */
+    .view-video-btn {
+        padding: 10px 20px;
+        margin: 5px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .delete-btn {
+        padding: 10px 20px;
+        margin: 5px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: #dc3545; /* Bootstrap danger color */
+        color: white;
+    }
+    
+    /* Footer Styles */
+    .footer {
+        text-align: center;
+        padding: 10px;
+        background-color: #333;
+        color: white;
+        position: fixed; /* Cố định footer ở dưới cùng */
+        bottom: 0;
+        width: 100%;
+    }
+    
+    /* Login Styles */
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #f4f4f4;
+    }
+    
+    .login-form {
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+    }
+    
+    .login-form h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #2c3e50;
+        font-size: 22px;
+    }
+    
+    .login-form input {
+        width: 100%;
+        padding: 12px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+    
+    .login-form button {
+        width: 100%;
+        padding: 12px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    
+    .login-form button:hover {
+        background-color: #2980b9;
+    }
+    
+    /* Responsive Styles */
+    @media (max-width: 800px) {
+        .container {
+            flex-direction: column;
+        }
+    
+        .video-container {
+            width: 100%; /* Ensure video frame takes full width on small screens */
+            margin-top: 20px;
+        }
+    }
+    </style>
+</head>
+
+<body>
+    <!-- Khung đăng nhập -->
+    <div id="login-container" class="login-container">
+        <form id="login-form" class="login-form">
+            <h2>Đăng nhập</h2>
+            <input type="text" id="username" placeholder="Tài khoản" required>
+            <input type="password" id="password" placeholder="Mật khẩu" required>
+            <button type="submit">Đăng nhập</button>
+        </form>
+    </div>
+
+    <!-- Nội dung chính (sẽ bị ẩn cho đến khi đăng nhập thành công) -->
+    <div id="main-content" style="display:none;">
+        <div class="navbar">
+            <a href="home.html">Trang Chủ</a>
+            <a href="hotro.html">Hỗ Trợ</a>
+        </div>
+
+        <div class="container">
+            <div class="content">
+                <h1>Thông tin thí sinh</h1>
+
+                <!-- Vùng hiển thị danh sách thí sinh -->
+                <div id="status-container" class="status-info">
+                    <!-- Danh sách thí sinh sẽ được thêm vào đây -->
+                </div>
+            </div>
+
+            <!-- Khung video nằm bên phải -->
+            <div class="video-container">
+                <div class="video-title">Video thí sinh thi</div>
+                <div class="video-frame">
+                    <video id="stored-video" controls></video>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Design by GKNM</p>
+        </div>
+    </div>
+</body>
+
+</html>
