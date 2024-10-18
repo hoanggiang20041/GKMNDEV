@@ -244,7 +244,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, query, collection, where, getDocs } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-storage.js";
 
         const firebaseConfig = {
@@ -311,45 +311,58 @@
             });
         }
 
-        function updateUserInfo(uid) {
+        async function updateUserInfo(uid) {
             const newUsername = document.getElementById('newUsername').value.trim();
-            const newPhone = document.getElementById('newPhone').value.trim();
+            let newPhone = document.getElementById('newPhone').value.trim();
             const updateStatus = document.getElementById('updateStatus');
 
+            // Kiểm tra nếu người dùng không nhập đủ thông tin
             if (!newUsername || !newPhone) {
                 updateStatus.textContent = 'Vui lòng nhập đầy đủ thông tin!';
                 return;
             }
 
-            getDoc(doc(db, 'users', uid)).then((docSnap) => {
-                if (docSnap.exists()) {
-                    const existingData = docSnap.data();
+            // Chuyển đổi số điện thoại thành định dạng quốc tế (nếu là số điện thoại Việt Nam)
+            if (newPhone.startsWith('0')) {
+                newPhone = '+84' + newPhone.slice(1);
+            }
 
-                    if (existingData.username === newUsername) {
-                        updateStatus.textContent = 'Tên người dùng không thay đổi!';
-                        return;
-                    }
-                    if (existingData.tel === newPhone) {
-                        updateStatus.textContent = 'Số điện thoại không thay đổi!';
-                        return;
-                    }
+            try {
+                // Kiểm tra trùng username
+                const usernameQuery = query(collection(db, 'users'), where('username', '==', newUsername));
+                const usernameSnapshot = await getDocs(usernameQuery);
+
+                // Nếu tìm thấy username đã tồn tại và không phải của chính người dùng hiện tại
+                if (!usernameSnapshot.empty && usernameSnapshot.docs[0].id !== uid) {
+                    updateStatus.textContent = 'Tên người dùng đã tồn tại!';
+                    return;
                 }
 
-                setDoc(doc(db, 'users', uid), {
+                // Kiểm tra trùng số điện thoại
+                const phoneQuery = query(collection(db, 'users'), where('tel', '==', newPhone));
+                const phoneSnapshot = await getDocs(phoneQuery);
+
+                // Nếu tìm thấy số điện thoại đã tồn tại và không phải của chính người dùng hiện tại
+                if (!phoneSnapshot.empty && phoneSnapshot.docs[0].id !== uid) {
+                    updateStatus.textContent = 'Số điện thoại đã tồn tại!';
+                    return;
+                }
+
+                // Cập nhật thông tin người dùng trong Firestore
+                await setDoc(doc(db, 'users', uid), {
                     username: newUsername,
                     tel: newPhone
-                }, { merge: true }).then(() => {
-                    updateStatus.textContent = 'Cập nhật thành công!';
-                    document.getElementById('username').innerText = newUsername;
-                    document.getElementById('tel').innerText = newPhone;
-                    document.getElementById('updateForm').style.display = 'none';
-                }).catch((error) => {
-                    console.error("Error updating user info:", error);
-                    updateStatus.textContent = 'Có lỗi xảy ra, vui lòng thử lại!';
-                });
-            }).catch((error) => {
-                console.error("Error checking for duplicates:", error);
-            });
+                }, { merge: true });
+
+                updateStatus.textContent = 'Cập nhật thành công!';
+                document.getElementById('username').innerText = newUsername;
+                document.getElementById('tel').innerText = newPhone;
+                document.getElementById('updateForm').style.display = 'none';
+
+            } catch (error) {
+                console.error("Error updating user info:", error);
+                updateStatus.textContent = 'Có lỗi xảy ra, vui lòng thử lại!';
+            }
         }
 
         window.uploadIdCard = function () {
@@ -440,7 +453,6 @@
 <body>
     <div class="navbar">
         <a href="home.html" class="logo">GKNM</a>
-        </a>
         <div class="menu-toggle">
             <div></div>
             <div></div>

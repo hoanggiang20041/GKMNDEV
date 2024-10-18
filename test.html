@@ -1,19 +1,34 @@
 <!DOCTYPE HTML>
+
 <html lang="vi">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Bài thi trắc nghiệm Lịch sử</title>
+
     <style>
         body {
+
             font-family: 'Arial', sans-serif;
+
             background-color: #f5f5f5;
+
             margin: 0;
+
             padding: 0;
+
             display: flex;
+
             flex-direction: column;
+
             min-height: 100vh;
+
             color: #333;
+
         }
 
         .quiz-container {
@@ -27,7 +42,8 @@
             position: relative;
         }
 
-        h1, h2 {
+        h1,
+        h2 {
             text-align: center;
             color: #2c7a7b;
         }
@@ -129,20 +145,28 @@
 </head>
 
 <body>
-    <div class="camera-frame" id="cameraFrame">
-        <video id="camera" autoplay></video>
-    </div>
-    <div class="quiz-container">
-        <h1>Bài thi trắc nghiệm Lịch sử</h1>
-        <h2>Bạn phải đúng 15/20 câu</h2>
-        <h2>Mới được nhận chứng chỉ</h2>
 
+    <div class="camera-frame" id="cameraFrame">
+
+        <video id="camera" autoplay></video>
+
+    </div>
+
+    <div class="quiz-container">
+
+        <h1>Bài thi trắc nghiệm Lịch sử</h1>
+
+        <h2>Bạn phải đúng 15/20 câu</h2>
+
+        <h2>Mới được nhận chứng chỉ</h2>
         <p class="username" id="username">Tên người dùng: Đang tải...</p>
         <div id="timer" class="timer">Thời gian: 04:00</div>
         <form id="quizForm"></form>
         <button type="button" class="submit-btn" onclick="submitQuiz()">Nộp bài</button>
         <div id="message" class="message">Cảm ơn bạn đã hoàn thành bài thi!</div>
-        <button class="cert-btn" id="certBtn" style="display: none;" onclick="getCertificate()">Nhận chứng chỉ</button>
+        <button class="cert-btn" id="certBtn" style="display: none;" onclick="window.location.href='chungchi.html'">Nhận
+            chứng chỉ</button>
+
         <button class="back-button" onclick="goBack()">Quay lại</button>
     </div>
     <div class="footer">
@@ -233,6 +257,11 @@
             });
         }
 
+
+
+        // Kiểm tra khi người dùng thoát toàn màn hình
+
+
         // Start timer for the quiz
         function startTimer() {
             const interval = setInterval(() => {
@@ -276,7 +305,7 @@
         // Start recording video
         function startRecording(stream) {
             mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = function(event) {
+            mediaRecorder.ondataavailable = function (event) {
                 if (event.data.size > 0) {
                     recordedChunks.push(event.data);
                 }
@@ -288,10 +317,14 @@
         async function stopRecording() {
             mediaRecorder.stop();
             return new Promise((resolve, reject) => {
-                mediaRecorder.onstop = async function() {
+                mediaRecorder.onstop = async function () {
                     const blob = new Blob(recordedChunks, { type: 'video/webm' });
                     const videoFileName = `quiz_${quizDocRef.id}_${Date.now()}.webm`;
                     const storageRef = storage.ref(`videos/${videoFileName}`);
+
+                    // Hiển thị thông báo tải video
+                    message.style.display = 'block';
+                    message.textContent = 'Đang tải video, vui lòng đợi...';
 
                     try {
                         const uploadTaskSnapshot = await storageRef.put(blob);
@@ -306,6 +339,7 @@
                         resolve(videoURL);
                     } catch (error) {
                         console.error('Lỗi khi tải video lên Firebase Storage:', error);
+                        message.textContent = 'Lỗi khi tải video, vui lòng thử lại.';
                         reject(error);
                     }
                 };
@@ -314,6 +348,10 @@
 
         // Submit quiz and stop recording
         async function submitQuiz() {
+            const submitButton = document.querySelector('.submit-btn');
+            submitButton.disabled = true;  // Vô hiệu hóa nút "Nộp bài" sau khi nhấn
+            submitButton.textContent = "Đang nộp bài...";  // Thay đổi văn bản nút để thông báo cho người dùng
+
             // Stop recording and wait for the video to finish uploading
             await stopRecording();
 
@@ -328,16 +366,18 @@
                 }
             });
 
+            // Disable all inputs after submission
             const inputs = quizForm.querySelectorAll('input');
             inputs.forEach(input => {
                 input.disabled = true;
             });
 
+            // Show message with the result
             message.style.display = 'block';
             message.textContent = `Cảm ơn bạn đã hoàn thành bài thi! Bạn trả lời đúng ${correctCount}/20 câu.`;
 
+            // Update end time and score in Firestore
             const endTime = new Date();
-
             if (quizDocRef) {
                 await quizDocRef.update({
                     score: correctCount,
@@ -345,15 +385,20 @@
                 });
             }
 
+            // Change button text to "Nộp bài thành công"
+            submitButton.textContent = "Nộp bài thành công";
+
+            // Show certificate button if the score is enough
             if (correctCount >= 15) {
                 certBtn.style.display = 'block';
+                message.textContent += " Bạn đã đủ điều kiện nhận chứng chỉ!";
             } else {
+                message.textContent += " Bạn chưa đủ điều kiện nhận chứng chỉ.";
                 setTimeout(() => {
                     window.location.href = 'home.html';
-                }, 3000);
+                }, 3000); // Redirect after 3 seconds
             }
         }
-
         // Display quiz questions
         function displayQuestions() {
             selectedQuestions = getRandomQuestions(20);
@@ -413,7 +458,7 @@
         // Nhận chứng chỉ
         function getCertificate() {
             const score = certBtn.dataset.score;
-            window.location.href = `certificate.html?score=${score}`;
+            window.location.href = `chungchi.html?score=${score}`;
         }
 
         // Quay lại trang chủ
@@ -422,7 +467,7 @@
         }
 
         // Xử lý sự kiện chuyển tab
-        document.addEventListener('visibilitychange', function() {
+        document.addEventListener('visibilitychange', function () {
             if (document.hidden) {
                 tabSwitchCount++;
 
@@ -438,11 +483,13 @@
             }
         });
 
+
         // Bắt đầu bài thi và camera khi trang tải
-        window.onload = function() {
+        window.onload = function () {
             startCamera();
             startQuiz();
         };
     </script>
 </body>
+
 </html>
