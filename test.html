@@ -491,5 +491,18 @@
         };
     </script>
 </body>
+<script>
+    // Vô hiệu hóa chuột phải (Right-click)
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault(); // Chặn menu chuột phải
+    });
+
+    // Vô hiệu hóa F12 và một số tổ hợp phím thông dụng để mở Developer Tools
+    document.onkeydown = function(e) {
+        if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) || (e.ctrlKey && e.key === 'U')) {
+            return false; // Chặn F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J, Ctrl+U
+        }
+    };
+</script>
 
 </html>
