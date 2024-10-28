@@ -137,9 +137,18 @@
             document.querySelector('.login-form').style.display = 'none';
         }
 
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
         window.authenticateAdmin = async function(username, password) {
-            // Updated credentials
-            if (username === 'admin@gknm.id.vn' && password === '868686') {
+            const storedHashedPassword = '218c2b2e6ce0eeb6b3c6f99643a85c8375e6cf6e2f0d7b3b80dfb9d4e1c1605b';
+
+            const hashedPassword = await hashPassword(password);
+            if (username === 'admin@gknm.id.vn' && hashedPassword === storedHashedPassword) {
                 isAdminLoggedIn = true;
                 hideLoginForm();
                 displayUsers();
@@ -249,5 +258,18 @@
         </thead>
         <tbody id="userList"></tbody>
     </table>
+    <script>
+        // Vô hiệu hóa chuột phải (Right-click)
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault(); // Chặn menu chuột phải
+        });
+
+        // Vô hiệu hóa F12 và một số tổ hợp phím thông dụng để mở Developer Tools
+        document.onkeydown = function(e) {
+            if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) || (e.ctrlKey && e.key === 'U')) {
+                return false; // Chặn F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J, Ctrl+U
+            }
+        };
+    </script>
 </body>
 </html>
