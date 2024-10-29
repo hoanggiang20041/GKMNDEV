@@ -242,20 +242,13 @@
         }
     </style>
     <script type="module">
+         import { firebaseConfig } from './firebaseConfig.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, query, collection, where, getDocs } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-storage.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
-            authDomain: "luutru-2fc0c.firebaseapp.com",
-            projectId: "luutru-2fc0c",
-            storageBucket: "luutru-2fc0c.appspot.com",
-            messagingSenderId: "447316566416",
-            appId: "1:447316566416:web:8ea9562ef016528232d315",
-            measurementId: "G-QLE52FWS60"
-        };
+       
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);

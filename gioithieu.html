@@ -7,16 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
     <script type="module">
-        // Cấu hình Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
-            authDomain: "luutru-2fc0c.firebaseapp.com",
-            projectId: "luutru-2fc0c",
-            storageBucket: "luutru-2fc0c.appspot.com",
-            messagingSenderId: "447316566416",
-            appId: "1:447316566416:web:8ea9562ef016528232d315",
-            measurementId: "G-QLE52FWS60"
-        };
+        import { firebaseConfig } from './firebaseConfig.js';
 
         // Import Firebase và Firebase Authentication
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
@@ -73,7 +64,7 @@
         }
 
         // Hàm bắt đầu bài thi
-        window.startQuiz = function() {
+        window.startQuiz = function () {
             if (cameraAccessGranted) {
                 alert("Bắt đầu làm bài!");
                 window.location.href = 'test.html'; // Chuyển đến trang thi
@@ -83,7 +74,7 @@
         };
 
         // Hàm quay lại trang trước
-        window.goBack = function() {
+        window.goBack = function () {
             window.location.href = 'home.html'; // Chuyển hướng về trang chủ
         };
 
@@ -254,12 +245,12 @@
 </body>
 <script>
     // Vô hiệu hóa chuột phải (Right-click)
-    document.addEventListener('contextmenu', function(e) {
+    document.addEventListener('contextmenu', function (e) {
         e.preventDefault(); // Chặn menu chuột phải
     });
 
     // Vô hiệu hóa F12 và một số tổ hợp phím thông dụng để mở Developer Tools
-    document.onkeydown = function(e) {
+    document.onkeydown = function (e) {
         if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) || (e.ctrlKey && e.key === 'U')) {
             return false; // Chặn F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J, Ctrl+U
         }

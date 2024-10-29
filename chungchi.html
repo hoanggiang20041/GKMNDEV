@@ -1,5 +1,6 @@
 <!DOCTYPE HTML>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -16,11 +17,14 @@
             flex-direction: column;
             height: 100vh;
         }
+
         .container {
             text-align: center;
             max-width: 90%;
         }
-        .download-button, .back-button {
+
+        .download-button,
+        .back-button {
             margin-top: 20px;
             padding: 10px 20px;
             font-size: 18px;
@@ -31,19 +35,24 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
-        .download-button:hover, .back-button:hover {
+
+        .download-button:hover,
+        .back-button:hover {
             background-color: #0056b3;
         }
+
         img {
             max-width: 50%;
             height: auto;
             display: block;
             margin: 20px auto;
         }
+
         h1 {
             font-size: 24px;
             margin-bottom: 10px;
         }
+
         h2 {
             font-size: 20px;
             color: #28a745;
@@ -51,6 +60,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Chứng chỉ</h1>
@@ -59,21 +69,14 @@
         <button id="downloadButton" class="download-button">Tải chứng chỉ</button>
         <button class="back-button" onclick="goBack()">Quay lại</button>
     </div>
-    <script src="https://www.gstatic.com/firebasejs/9.9.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.9.0/firebase-auth-compat.js"></script>
-    <script>
-        // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
-            authDomain: "luutru-2fc0c.firebaseapp.com",
-            projectId: "luutru-2fc0c",
-            storageBucket: "luutru-2fc0c.appspot.com",
-            messagingSenderId: "447316566416",
-            appId: "1:447316566416:web:8ea9562ef016528232d315",
-            measurementId: "G-QLE52FWS60"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+    <script type="module">
+       import { firebaseConfig } from './firebaseConfig.js';
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app); // Initialize Firebase Auth
+
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -88,7 +91,7 @@
             }
         });
 
-        document.getElementById('downloadButton').addEventListener('click', function() {
+        document.getElementById('downloadButton').addEventListener('click', function () {
             const img = document.getElementById('chungchi');
             const link = document.createElement('a');
             link.href = img.src;
@@ -114,16 +117,17 @@
     </script>
     <script>
         // Vô hiệu hóa chuột phải (Right-click)
-        document.addEventListener('contextmenu', function(e) {
+        document.addEventListener('contextmenu', function (e) {
             e.preventDefault(); // Chặn menu chuột phải
         });
 
         // Vô hiệu hóa F12 và một số tổ hợp phím thông dụng để mở Developer Tools
-        document.onkeydown = function(e) {
-            if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) || (e.ctrlKey && ( (e.key === 'U' || e.key === 'u')))) {
+        document.onkeydown = function (e) {
+            if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) || (e.ctrlKey && ((e.key === 'U' || e.key === 'u')))) {
                 return false; // Chặn F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J, Ctrl+U 
             }
         };
     </script>
 </body>
+
 </html>
