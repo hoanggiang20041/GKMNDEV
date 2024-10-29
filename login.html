@@ -253,10 +253,11 @@
                     await sendEmailVerification(user);
                     alert('Chúng tôi đã gửi lại email xác thực. Vui lòng kiểm tra hộp thư đến của bạn.');
 
-                    // Bạn có thể chuyển hướng người dùng đến trang nhắc nhở xác thực email (ví dụ: email.html)
-                    window.location.href = './email.html';
-                    return;
+                    return;  // Không cho phép người dùng vào hệ thống cho đến khi email được xác thực
                 }
+
+                // Nếu email đã được xác thực, cho phép người dùng đăng nhập thành công
+                alert('Đăng nhập thành công!');
 
                 // Lưu lịch sử đăng nhập vào Firestore
                 const userId = user.uid;
