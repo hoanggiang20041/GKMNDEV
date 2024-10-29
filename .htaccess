@@ -1,0 +1,16 @@
+<IfModule mod_headers.c>
+    # Chính sách bảo mật nội dung (Content Security Policy)
+    Header set Content-Security-Policy "default-src 'self'; img-src *; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+
+    # Tùy chọn X-Frame (Chặn nhúng iframe từ các domain khác)
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Tùy chọn X-Content-Type (Ngăn chặn MIME sniffing)
+    Header set X-Content-Type-Options "nosniff"
+
+    # Chính sách giới thiệu (Referrer Policy)
+    Header set Referrer-Policy "no-referrer"
+
+    # Chính sách cấp quyền (Permissions Policy)
+    Header set Permissions-Policy "geolocation=(self), microphone=(), camera=()"
+</IfModule>

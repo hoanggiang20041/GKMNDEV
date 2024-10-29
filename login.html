@@ -207,17 +207,19 @@
             return `${timeString} ngày ${dateString}`;
         }
         async function signIn(e) {
-            e.preventDefault();
-            document.querySelectorAll('.error').forEach(err => err.textContent = '');
+            e.preventDefault();  // Ngăn chặn hành động mặc định khi submit form
+            document.querySelectorAll('.error').forEach(err => err.textContent = '');  // Xóa tất cả thông báo lỗi trước đó
 
-            const usernameOrEmail = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
+            const usernameOrEmail = document.getElementById('loginEmail').value.trim();  // Lấy giá trị từ trường email hoặc tên người dùng
+            const password = document.getElementById('loginPassword').value.trim();  // Lấy mật khẩu nhập vào
 
+            // Kiểm tra nếu người dùng chưa nhập tên người dùng hoặc email
             if (!usernameOrEmail) {
                 document.getElementById('loginEmailError').textContent = 'Vui lòng nhập tên người dùng hoặc email.';
                 return;
             }
 
+            // Kiểm tra nếu người dùng chưa nhập mật khẩu
             if (!password) {
                 document.getElementById('loginPasswordError').textContent = 'Vui lòng nhập mật khẩu.';
                 return;
@@ -226,22 +228,38 @@
             try {
                 let email = usernameOrEmail;
 
+                // Nếu người dùng nhập tên người dùng, tìm email tương ứng trong Firestore
                 const userQuery = query(collection(db, "users"), where("username", "==", usernameOrEmail));
                 const userDoc = await getDocs(userQuery);
+
                 if (!userDoc.empty) {
+                    // Nếu tìm thấy người dùng, lấy email từ Firestore
                     email = userDoc.docs[0].data().email;
                 }
 
+                // Đăng nhập bằng email và mật khẩu với Firebase Authentication
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const userId = userCredential.user.uid;
-
-                // Kiểm tra trạng thái xác thực email
                 const user = userCredential.user;
+
+                // Tải lại thông tin người dùng để đảm bảo trạng thái xác thực email mới nhất
+                await user.reload();
+
+                // Kiểm tra xem email đã được xác thực chưa
                 if (!user.emailVerified) {
+                    // Nếu email chưa được xác thực, thông báo và yêu cầu người dùng xác thực
                     alert('Vui lòng xác thực email của bạn trước khi đăng nhập.');
+
+                    // Gửi lại email xác thực nếu cần
+                    await sendEmailVerification(user);
+                    alert('Chúng tôi đã gửi lại email xác thực. Vui lòng kiểm tra hộp thư đến của bạn.');
+
+                    // Bạn có thể chuyển hướng người dùng đến trang nhắc nhở xác thực email (ví dụ: email.html)
+                    window.location.href = './email.html';
                     return;
                 }
 
+                // Lưu lịch sử đăng nhập vào Firestore
+                const userId = user.uid;
                 const userName = userDoc.empty ? email : userDoc.docs[0].data().fullName;
                 const loginTimestamp = new Date();
 
@@ -257,10 +275,16 @@
                 window.location.href = './home.html';
 
             } catch (error) {
-                alert('Sai tài khoản hoặc mật khẩu');
+                // Xử lý lỗi khi đăng nhập
+                if (error.code === 'auth/user-not-found') {
+                    alert('Tài khoản không tồn tại.');
+                } else if (error.code === 'auth/wrong-password') {
+                    alert('Mật khẩu không đúng.');
+                } else {
+                    alert('Đã xảy ra lỗi: ' + error.message);
+                }
             }
         }
-
 
 
         function validatePassword() {
@@ -505,11 +529,13 @@
                     // Gửi email xác nhận
                     await sendEmailVerification(user);
                     alert('Đăng ký bằng Google thành công! Đã gửi email xác nhận đến ' + user.email + '. Vui lòng kiểm tra hộp thư của bạn.');
+
+                    // Chuyển hướng đến email.html để kiểm tra xác nhận email
+                    window.location.href = './email.html';
                 } else {
                     alert('Tài khoản này đã được đăng ký.');
                 }
 
-                window.location.href = './login.html';
             } catch (error) {
                 alert('Đã xảy ra lỗi khi đăng ký bằng Google: ' + error.message);
             }
@@ -563,9 +589,15 @@
                     return;
                 }
 
+                // Tải lại người dùng để kiểm tra trạng thái xác thực email
+                await user.reload();
+
                 // Kiểm tra trạng thái xác thực email
                 if (!user.emailVerified) {
                     alert('Vui lòng xác thực email của bạn trước khi đăng nhập.');
+
+                    // Chuyển hướng đến email.html để kiểm tra xác nhận email
+                    window.location.href = './email.html';
                     return;
                 }
 
@@ -586,7 +618,6 @@
                 alert('Đã xảy ra lỗi khi đăng nhập bằng Google: ' + error.message);
             }
         }
-
     </script>
 </head>
 <script>
