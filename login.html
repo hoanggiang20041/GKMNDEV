@@ -207,86 +207,77 @@
             return `${timeString} ngày ${dateString}`;
         }
         async function signIn(e) {
-            e.preventDefault();  // Ngăn chặn hành động mặc định khi submit form
-            document.querySelectorAll('.error').forEach(err => err.textContent = '');  // Xóa tất cả thông báo lỗi trước đó
+    e.preventDefault();  // Ngăn chặn hành động mặc định khi submit form
+    document.querySelectorAll('.error').forEach(err => err.textContent = '');  // Xóa tất cả thông báo lỗi trước đó
 
-            const usernameOrEmail = document.getElementById('loginEmail').value.trim();  // Lấy giá trị từ trường email hoặc tên người dùng
-            const password = document.getElementById('loginPassword').value.trim();  // Lấy mật khẩu nhập vào
+    const usernameOrEmail = document.getElementById('loginEmail').value.trim();  // Lấy giá trị từ trường email hoặc tên người dùng
+    const password = document.getElementById('loginPassword').value.trim();  // Lấy mật khẩu nhập vào
 
-            // Kiểm tra nếu người dùng chưa nhập tên người dùng hoặc email
-            if (!usernameOrEmail) {
-                document.getElementById('loginEmailError').textContent = 'Vui lòng nhập tên người dùng hoặc email.';
-                return;
-            }
+    // Kiểm tra nếu người dùng chưa nhập tên người dùng hoặc email
+    if (!usernameOrEmail) {
+        document.getElementById('loginEmailError').textContent = 'Vui lòng nhập tên người dùng hoặc email.';
+        return;
+    }
 
-            // Kiểm tra nếu người dùng chưa nhập mật khẩu
-            if (!password) {
-                document.getElementById('loginPasswordError').textContent = 'Vui lòng nhập mật khẩu.';
-                return;
-            }
+    // Kiểm tra nếu người dùng chưa nhập mật khẩu
+    if (!password) {
+        document.getElementById('loginPasswordError').textContent = 'Vui lòng nhập mật khẩu.';
+        return;
+    }
 
-            try {
-                let email = usernameOrEmail;
+    // Kiểm tra reCAPTCHA
+    const recaptchaResponse = grecaptcha.getResponse();
+    if (!recaptchaResponse) {
+        document.getElementById('recaptchaError').textContent = 'Vui lòng xác nhận bạn không phải là người máy.';
+        return;
+    }
 
-                // Nếu người dùng nhập tên người dùng, tìm email tương ứng trong Firestore
-                const userQuery = query(collection(db, "users"), where("username", "==", usernameOrEmail));
-                const userDoc = await getDocs(userQuery);
+    try {
+        let email = usernameOrEmail;
 
-                if (!userDoc.empty) {
-                    // Nếu tìm thấy người dùng, lấy email từ Firestore
-                    email = userDoc.docs[0].data().email;
-                }
+        // Nếu người dùng nhập tên người dùng, tìm email tương ứng trong Firestore
+        const userQuery = query(collection(db, "users"), where("username", "==", usernameOrEmail));
+        const userDoc = await getDocs(userQuery);
 
-                // Đăng nhập bằng email và mật khẩu với Firebase Authentication
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-
-                // Tải lại thông tin người dùng để đảm bảo trạng thái xác thực email mới nhất
-                await user.reload();
-
-                // Kiểm tra xem email đã được xác thực chưa
-                if (!user.emailVerified) {
-                    // Nếu email chưa được xác thực, thông báo và yêu cầu người dùng xác thực
-                    alert('Vui lòng xác thực email của bạn trước khi đăng nhập.');
-
-                    // Gửi lại email xác thực nếu cần
-                    await sendEmailVerification(user);
-                    alert('Chúng tôi đã gửi lại email xác thực. Vui lòng kiểm tra hộp thư đến của bạn.');
-
-                    return;  // Không cho phép người dùng vào hệ thống cho đến khi email được xác thực
-                }
-
-                // Nếu email đã được xác thực, cho phép người dùng đăng nhập thành công
-                alert('Đăng nhập thành công!');
-
-                // Lưu lịch sử đăng nhập vào Firestore
-                const userId = user.uid;
-                const userName = userDoc.empty ? email : userDoc.docs[0].data().fullName;
-                const loginTimestamp = new Date();
-
-                const loginHistoryRef = collection(db, "loginHistory");
-                await setDoc(doc(loginHistoryRef, `${userId}_${Date.now()}`), {
-                    userId: userId,
-                    username: userName,
-                    timestamp: loginTimestamp.toISOString(),
-                    formattedTime: formatTimestamp(loginTimestamp.toISOString())
-                });
-
-                // Chuyển hướng đến trang chính sau khi đăng nhập thành công
-                window.location.href = './home.html';
-
-            } catch (error) {
-                // Xử lý lỗi khi đăng nhập
-                if (error.code === 'auth/user-not-found') {
-                    alert('Tài khoản không tồn tại.');
-                } else if (error.code === 'auth/wrong-password') {
-                    alert('Mật khẩu không đúng.');
-                } else {
-                    alert('Đã xảy ra lỗi: ' + error.message);
-                }
-            }
+        if (!userDoc.empty) {
+            // Nếu tìm thấy người dùng, lấy email từ Firestore
+            email = userDoc.docs[0].data().email;
         }
 
+        // Đăng nhập bằng email và mật khẩu với Firebase Authentication
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Nếu đăng nhập thành công, xử lý thông tin người dùng
+        alert('Đăng nhập thành công!');
+
+        // Lưu lịch sử đăng nhập vào Firestore
+        const userId = user.uid;
+        const userName = userDoc.empty ? email : userDoc.docs[0].data().fullName;
+        const loginTimestamp = new Date();
+
+        const loginHistoryRef = collection(db, "loginHistory");
+        await setDoc(doc(loginHistoryRef, `${userId}_${Date.now()}`), {
+            userId: userId,
+            username: userName,
+            timestamp: loginTimestamp.toISOString(),
+            formattedTime: formatTimestamp(loginTimestamp.toISOString())
+        });
+
+        // Chuyển hướng đến trang chính sau khi đăng nhập thành công
+        window.location.href = './home.html';
+
+    } catch (error) {
+        // Xử lý lỗi khi đăng nhập
+        if (error.code === 'auth/user-not-found') {
+            alert('Tài khoản không tồn tại.');
+        } else if (error.code === 'auth/wrong-password') {
+            alert('Mật khẩu không đúng.');
+        } else {
+            alert('Đã xảy ra lỗi: ' + error.message);
+        }
+    }
+}
 
         function validatePassword() {
             const password = document.getElementById('registerPassword').value;
@@ -644,6 +635,7 @@
             <input type="password" id="loginPassword" placeholder="Mật khẩu" required>
             <span class="error" id="loginPasswordError"></span>
             <button type="submit">Đăng Nhập</button>
+            <div id="recaptcha-container"></div>
             <div class="forgot-password" id="forgotPassword">Quên mật khẩu?</div>
             <div class="or-text">or</div>
             <div class="auth-buttons">
@@ -772,6 +764,7 @@
         </div>
     </div>
 </body>
-
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<div class="g-recaptcha" data-sitekey="6Lfkv28qAAAAAPhywqFcqRGQ151tfR6t6Biq0aZA"></div>
 
 </html>
