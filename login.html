@@ -64,6 +64,21 @@
             font-size: 12px;
         }
 
+        .success {
+            color: green;
+            font-size: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .message {
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+
         .forgot-password {
             margin-top: 10px;
             font-size: 12px;
@@ -88,7 +103,7 @@
 
         .google-button,
         .otp-button,
-        .face-button {
+        .admin-button {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -105,7 +120,7 @@
 
         .google-button img,
         .otp-button img,
-        .face-button img {
+        .admin-button img {
             width: 20px;
         }
 
@@ -135,10 +150,20 @@
             padding: 5px;
             width: 100%;
         }
+
+        #passwordLength,
+        #passwordUpper,
+        #passwordSpecial,
+        #confirmMessage {
+            text-align: left;
+            /* Căn trái */
+            margin-left: 10px;
+            /* Khoảng cách từ bên trái */
+        }
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, sendEmailVerification } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-auth.js";
         import { getFirestore, collection, query, where, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -168,14 +193,11 @@
             document.getElementById('otpSignIn').addEventListener('click', function () {
                 window.location.href = 'otp.html';
             });
-            document.getElementById('faceSignIn').addEventListener('click', function () {
-                window.location.href = 'faceid.html';
-            });
-
-            document.getElementById('faceRegister').addEventListener('click', function () {
-                window.location.href = 'dkface.html';
+            document.getElementById('adminSignIn').addEventListener('click', function () {
+                window.location.href = 'admin.html';
             });
         });
+
 
         function formatTimestamp(isoString) {
             const date = new Date(isoString);
@@ -184,7 +206,6 @@
             const dateString = date.toLocaleDateString('vi-VN');
             return `${timeString} ngày ${dateString}`;
         }
-
         async function signIn(e) {
             e.preventDefault();
             document.querySelectorAll('.error').forEach(err => err.textContent = '');
@@ -213,6 +234,14 @@
 
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const userId = userCredential.user.uid;
+
+                // Kiểm tra trạng thái xác thực email
+                const user = userCredential.user;
+                if (!user.emailVerified) {
+                    alert('Vui lòng xác thực email của bạn trước khi đăng nhập.');
+                    return;
+                }
+
                 const userName = userDoc.empty ? email : userDoc.docs[0].data().fullName;
                 const loginTimestamp = new Date();
 
@@ -224,11 +253,108 @@
                     formattedTime: formatTimestamp(loginTimestamp.toISOString())
                 });
 
-                window.location.href = (email === "admin@gmail.com" && password === "123456") ? './admin.html' : './home.html';
+                // Chuyển hướng đến trang chính sau khi đăng nhập thành công
+                window.location.href = './home.html';
+
             } catch (error) {
                 alert('Sai tài khoản hoặc mật khẩu');
             }
         }
+
+
+
+        function validatePassword() {
+            const password = document.getElementById('registerPassword').value;
+            const passwordLength = document.getElementById('passwordLength');
+            const passwordUpper = document.getElementById('passwordUpper');
+            const passwordSpecial = document.getElementById('passwordSpecial');
+
+            // Reset trạng thái các thông báo
+            passwordLength.classList.remove('success', 'hidden', 'error');
+            passwordUpper.classList.remove('success', 'hidden', 'error');
+            passwordSpecial.classList.remove('success', 'hidden', 'error');
+
+            // Kiểm tra mật khẩu rỗng
+            if (password.length === 0) {
+                passwordLength.textContent = "Mật khẩu phải có ít nhất 8 ký tự";
+                passwordUpper.textContent = "Mật khẩu cần có cả chữ hoa và chữ thường";
+                passwordSpecial.textContent = "Mật khẩu cần có ít nhất một ký tự đặc biệt";
+
+                passwordLength.classList.add('error');
+                passwordUpper.classList.add('error');
+                passwordSpecial.classList.add('error');
+                return; // Ngừng kiểm tra nếu mật khẩu rỗng
+            }
+
+            // Kiểm tra độ dài mật khẩu (ít nhất 8 ký tự)
+            if (password.length >= 8) {
+                passwordLength.textContent = "Mật khẩu có ít nhất 8 ký tự";
+                passwordLength.classList.add('success');
+                passwordLength.classList.remove('error');
+                setTimeout(() => passwordLength.classList.add('hidden'), 2000); // Ẩn sau 2 giây
+            } else {
+                passwordLength.textContent = "Mật khẩu phải có ít nhất 8 ký tự";
+                passwordLength.classList.add('error');
+            }
+
+            // Kiểm tra chữ hoa và chữ thường
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
+                passwordUpper.textContent = "Mật khẩu chứa chữ hoa và chữ thường";
+                passwordUpper.classList.add('success');
+                passwordUpper.classList.remove('error');
+                setTimeout(() => passwordUpper.classList.add('hidden'), 2000); // Ẩn sau 2 giây
+            } else {
+                passwordUpper.textContent = "Mật khẩu cần có cả chữ hoa và chữ thường";
+                passwordUpper.classList.add('error');
+            }
+
+            // Kiểm tra ký tự đặc biệt
+            if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+                passwordSpecial.textContent = "Mật khẩu có ít nhất một ký tự đặc biệt";
+                passwordSpecial.classList.add('success');
+                passwordSpecial.classList.remove('error');
+                setTimeout(() => passwordSpecial.classList.add('hidden'), 2000); // Ẩn sau 2 giây
+            } else {
+                passwordSpecial.textContent = "Mật khẩu cần có ít nhất một ký tự đặc biệt";
+                passwordSpecial.classList.add('error');
+            }
+
+            checkConfirmPassword();
+        }
+
+        function checkConfirmPassword() {
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const confirmMessage = document.getElementById('confirmMessage');
+
+            // Reset trạng thái thông báo xác nhận
+            confirmMessage.classList.remove('success', 'error', 'hidden');
+
+            // Kiểm tra mật khẩu xác nhận rỗng
+            if (confirmPassword.length === 0) {
+                confirmMessage.textContent = "";
+                return; // Ngừng kiểm tra nếu mật khẩu xác nhận rỗng
+            }
+
+            if (password === confirmPassword) {
+                confirmMessage.textContent = "Mật khẩu trùng khớp";
+                confirmMessage.classList.add('success');
+                setTimeout(() => confirmMessage.classList.add('hidden'), 2000); // Ẩn sau 2 giây
+            } else {
+                confirmMessage.textContent = "Mật khẩu không trùng khớp";
+                confirmMessage.classList.add('error');
+            }
+        }
+
+        document.getElementById('registerPassword').addEventListener('input', validatePassword);
+        document.getElementById('confirmPassword').addEventListener('input', checkConfirmPassword);
+
+
+
+
+
+
+
 
         async function register(e) {
             e.preventDefault();
@@ -247,36 +373,45 @@
             const phoneRegex = /^\d{9}$/;
             const fullPhoneNumber = phoneCode + formattedPhoneNumber;
 
+            // Full Name validation
             if (!fullName) {
                 document.getElementById('fullNameError').textContent = 'Vui lòng nhập tên đầy đủ.';
                 return;
             }
 
+            // Username validation
             if (!username) {
                 document.getElementById('usernameError').textContent = 'Vui lòng nhập tên người dùng.';
                 return;
             }
 
+            // Email validation
             if (!email) {
                 document.getElementById('registerEmailError').textContent = 'Vui lòng nhập email.';
                 return;
             }
 
+            // Password validation
             if (!password) {
                 document.getElementById('registerPasswordError').textContent = 'Vui lòng nhập mật khẩu.';
                 return;
             }
 
+            // Password confirmation
             if (password !== confirmPassword) {
                 document.getElementById('confirmPasswordError').textContent = 'Mật khẩu xác nhận không khớp.';
                 return;
             }
 
-            if (!/(?=.*[a-z])(?=.*[A-Z])/.test(password)) {
-                document.getElementById('registerPasswordError').textContent = 'Mật khẩu phải có chữ hoa và chữ thường.';
+            // Password strength validation
+            // Kiểm tra mật khẩu mạnh
+            if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>])/.test(password)) {
+                document.getElementById('registerPasswordError').textContent = 'Mật khẩu phải có chữ hoa, chữ thường và ít nhất một ký tự đặc biệt.';
                 return;
             }
 
+
+            // Phone number validation
             if (!phoneRegex.test(formattedPhoneNumber)) {
                 document.getElementById('phoneNumberError').textContent = 'Số điện thoại không hợp lệ. Vui lòng nhập 9 chữ số.';
                 return;
@@ -287,7 +422,14 @@
                 return;
             }
 
+            // Province validation
+            if (!province) {
+                document.getElementById('provinceError').textContent = 'Vui lòng chọn tỉnh thành.';
+                return;
+            }
+
             try {
+                // Check if email is already registered
                 const emailQuery = query(collection(db, "users"), where("email", "==", email));
                 const emailDocs = await getDocs(emailQuery);
                 if (!emailDocs.empty) {
@@ -295,6 +437,7 @@
                     return;
                 }
 
+                // Check if username is already taken
                 const usernameQuery = query(collection(db, "users"), where("username", "==", username));
                 const usernameDocs = await getDocs(usernameQuery);
                 if (!usernameDocs.empty) {
@@ -302,20 +445,19 @@
                     return;
                 }
 
+                // Check if phone number is already registered
                 const phoneQuery = query(collection(db, "users"), where("tel", "==", fullPhoneNumber));
                 const phoneDocs = await getDocs(phoneQuery);
                 if (!phoneDocs.empty) {
                     document.getElementById('phoneNumberError').textContent = 'Số điện thoại đã được sử dụng.';
                     return;
                 }
-                if (!province) {
-                    document.getElementById('provinceError').textContent = 'Vui lòng chọn tỉnh thành.';
-                    return;
-                }
 
+                // Register the user with Firebase Authentication
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
+                // Add user data to Firestore
                 await setDoc(doc(db, "users", user.uid), {
                     fullName: fullName,
                     username: username,
@@ -326,7 +468,10 @@
                     createdAt: new Date()
                 });
 
-                alert('Đăng ký thành công! Bạn có thể đăng nhập ngay bây giờ.');
+                // Send email verification
+                await sendEmailVerification(user);
+                alert('Đăng ký thành công! Đã gửi email xác nhận đến ' + email + '. Vui lòng kiểm tra hộp thư của bạn.');
+
                 document.getElementById('registerForm').reset();
                 showLoginForm();
             } catch (error) {
@@ -338,26 +483,37 @@
             }
         }
 
+        // Password validation function for real-time feedback
         async function googleRegister() {
             try {
                 const result = await signInWithPopup(auth, provider);
                 const user = result.user;
 
-                await setDoc(doc(db, "users", user.uid), {
-                    fullName: user.displayName,
-                    email: user.email,
-                    province: '',
-                    isVerified: true,
-                    createdAt: new Date()
-                });
+                // Kiểm tra nếu người dùng đã tồn tại trong Firestore
+                const userDoc = await getDocs(query(collection(db, "users"), where("email", "==", user.email)));
 
-                alert('Đăng ký bằng Google thành công!');
-                window.location.href = './home.html';
+                if (userDoc.empty) {
+                    // Thêm thông tin người dùng mới vào Firestore
+                    await setDoc(doc(db, "users", user.uid), {
+                        fullName: user.displayName,
+                        email: user.email,
+                        province: '',
+                        isVerified: false, // Đánh dấu là chưa xác nhận
+                        createdAt: new Date()
+                    });
+
+                    // Gửi email xác nhận
+                    await sendEmailVerification(user);
+                    alert('Đăng ký bằng Google thành công! Đã gửi email xác nhận đến ' + user.email + '. Vui lòng kiểm tra hộp thư của bạn.');
+                } else {
+                    alert('Tài khoản này đã được đăng ký.');
+                }
+
+                window.location.href = './login.html';
             } catch (error) {
                 alert('Đã xảy ra lỗi khi đăng ký bằng Google: ' + error.message);
             }
         }
-
 
         function showRegisterForm() {
             document.getElementById('signInForm').style.display = 'none';
@@ -398,11 +554,18 @@
                 const result = await signInWithPopup(auth, provider);
                 const user = result.user;
 
+                // Kiểm tra nếu email đã được đăng ký
                 const userQuery = query(collection(db, "users"), where("email", "==", user.email));
                 const userDoc = await getDocs(userQuery);
 
                 if (userDoc.empty) {
                     alert('Tài khoản Google này chưa được đăng ký.');
+                    return;
+                }
+
+                // Kiểm tra trạng thái xác thực email
+                if (!user.emailVerified) {
+                    alert('Vui lòng xác thực email của bạn trước khi đăng nhập.');
                     return;
                 }
 
@@ -417,26 +580,29 @@
                     method: 'Google'
                 });
 
+                // Chuyển hướng đến trang chính sau khi đăng nhập thành công
                 window.location.href = './home.html';
             } catch (error) {
                 alert('Đã xảy ra lỗi khi đăng nhập bằng Google: ' + error.message);
             }
         }
+
     </script>
 </head>
 <script>
     // Vô hiệu hóa chuột phải (Right-click)
-    document.addEventListener('contextmenu', function(e) {
+    document.addEventListener('contextmenu', function (e) {
         e.preventDefault(); // Chặn menu chuột phải
     });
 
     // Vô hiệu hóa F12 và một số tổ hợp phím thông dụng để mở Developer Tools
-    document.onkeydown = function(e) {
+    document.onkeydown = function (e) {
         if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) || (e.ctrlKey && e.key === 'U')) {
             return false; // Chặn F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J, Ctrl+U
         }
     };
 </script>
+
 <body>
     <div class="container">
         <form id="signInForm">
@@ -455,6 +621,9 @@
                 <button type="button" id="otpSignIn" class="otp-button">
                     <img src="images/gmail.png" alt="Tel Logo">
                 </button>
+                <button type="button" id="adminSignIn" class="admin-button">
+                    <img src="images/admin.png" alt="Admin Logo">
+                </button>
             </div>
             <div>Chưa có tài khoản? <span id="showRegister" style="color: blue; cursor: pointer;">Đăng Ký</span></div>
         </form>
@@ -468,9 +637,14 @@
             <input type="email" id="registerEmail" placeholder="Email" required>
             <span class="error" id="registerEmailError"></span>
             <input type="password" id="registerPassword" placeholder="Mật khẩu" required>
+            <div id="passwordRequirements">
+                <p id="passwordLength" class="error">Mật khẩu phải có ít nhất 8 ký tự</p>
+                <p id="passwordUpper" class="error">Mật khẩu phải chứa cả chữ hoa và chữ thường</p>
+                <p id="passwordSpecial" class="error">Mật khẩu phải có ít nhất một ký tự đặc biệt</p>
+            </div>
             <span class="error" id="registerPasswordError"></span>
             <input type="password" id="confirmPassword" placeholder="Xác nhận mật khẩu" required>
-            <span class="error" id="confirmPasswordError"></span>
+            <p id="confirmMessage" class="message"></p>
             <div class="phone-container">
                 <select id="phoneCode" name="phoneCode" required>
                     <option value="+84">+84 (Vietnam)</option>
