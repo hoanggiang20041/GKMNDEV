@@ -160,6 +160,19 @@
             margin-left: 10px;
             /* Khoảng cách từ bên trái */
         }
+
+        .recaptcha-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        /* Remove scaling and ensure it's centered properly */
+        .g-recaptcha {
+            transform: none;
+            margin: 0 auto;
+        }
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-app.js";
@@ -207,77 +220,77 @@
             return `${timeString} ngày ${dateString}`;
         }
         async function signIn(e) {
-    e.preventDefault();  // Ngăn chặn hành động mặc định khi submit form
-    document.querySelectorAll('.error').forEach(err => err.textContent = '');  // Xóa tất cả thông báo lỗi trước đó
+            e.preventDefault();  // Ngăn chặn hành động mặc định khi submit form
+            document.querySelectorAll('.error').forEach(err => err.textContent = '');  // Xóa tất cả thông báo lỗi trước đó
 
-    const usernameOrEmail = document.getElementById('loginEmail').value.trim();  // Lấy giá trị từ trường email hoặc tên người dùng
-    const password = document.getElementById('loginPassword').value.trim();  // Lấy mật khẩu nhập vào
+            const usernameOrEmail = document.getElementById('loginEmail').value.trim();  // Lấy giá trị từ trường email hoặc tên người dùng
+            const password = document.getElementById('loginPassword').value.trim();  // Lấy mật khẩu nhập vào
 
-    // Kiểm tra nếu người dùng chưa nhập tên người dùng hoặc email
-    if (!usernameOrEmail) {
-        document.getElementById('loginEmailError').textContent = 'Vui lòng nhập tên người dùng hoặc email.';
-        return;
-    }
+            // Kiểm tra nếu người dùng chưa nhập tên người dùng hoặc email
+            if (!usernameOrEmail) {
+                document.getElementById('loginEmailError').textContent = 'Vui lòng nhập tên người dùng hoặc email.';
+                return;
+            }
 
-    // Kiểm tra nếu người dùng chưa nhập mật khẩu
-    if (!password) {
-        document.getElementById('loginPasswordError').textContent = 'Vui lòng nhập mật khẩu.';
-        return;
-    }
+            // Kiểm tra nếu người dùng chưa nhập mật khẩu
+            if (!password) {
+                document.getElementById('loginPasswordError').textContent = 'Vui lòng nhập mật khẩu.';
+                return;
+            }
 
-    // Kiểm tra reCAPTCHA
-    const recaptchaResponse = grecaptcha.getResponse();
-    if (!recaptchaResponse) {
-        document.getElementById('recaptchaError').textContent = 'Vui lòng xác nhận bạn không phải là người máy.';
-        return;
-    }
+            // Kiểm tra reCAPTCHA
+            const recaptchaResponse = grecaptcha.getResponse();
+            if (!recaptchaResponse) {
+                document.getElementById('recaptchaError').textContent = 'Vui lòng xác nhận bạn không phải là người máy.';
+                return;
+            }
 
-    try {
-        let email = usernameOrEmail;
+            try {
+                let email = usernameOrEmail;
 
-        // Nếu người dùng nhập tên người dùng, tìm email tương ứng trong Firestore
-        const userQuery = query(collection(db, "users"), where("username", "==", usernameOrEmail));
-        const userDoc = await getDocs(userQuery);
+                // Nếu người dùng nhập tên người dùng, tìm email tương ứng trong Firestore
+                const userQuery = query(collection(db, "users"), where("username", "==", usernameOrEmail));
+                const userDoc = await getDocs(userQuery);
 
-        if (!userDoc.empty) {
-            // Nếu tìm thấy người dùng, lấy email từ Firestore
-            email = userDoc.docs[0].data().email;
+                if (!userDoc.empty) {
+                    // Nếu tìm thấy người dùng, lấy email từ Firestore
+                    email = userDoc.docs[0].data().email;
+                }
+
+                // Đăng nhập bằng email và mật khẩu với Firebase Authentication
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Nếu đăng nhập thành công, xử lý thông tin người dùng
+                alert('Đăng nhập thành công!');
+
+                // Lưu lịch sử đăng nhập vào Firestore
+                const userId = user.uid;
+                const userName = userDoc.empty ? email : userDoc.docs[0].data().fullName;
+                const loginTimestamp = new Date();
+
+                const loginHistoryRef = collection(db, "loginHistory");
+                await setDoc(doc(loginHistoryRef, `${userId}_${Date.now()}`), {
+                    userId: userId,
+                    username: userName,
+                    timestamp: loginTimestamp.toISOString(),
+                    formattedTime: formatTimestamp(loginTimestamp.toISOString())
+                });
+
+                // Chuyển hướng đến trang chính sau khi đăng nhập thành công
+                window.location.href = './home.html';
+
+            } catch (error) {
+                // Xử lý lỗi khi đăng nhập
+                if (error.code === 'auth/user-not-found') {
+                    alert('Tài khoản không tồn tại.');
+                } else if (error.code === 'auth/wrong-password') {
+                    alert('Mật khẩu không đúng.');
+                } else {
+                    alert('Đã xảy ra lỗi: ' + error.message);
+                }
+            }
         }
-
-        // Đăng nhập bằng email và mật khẩu với Firebase Authentication
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-
-        // Nếu đăng nhập thành công, xử lý thông tin người dùng
-        alert('Đăng nhập thành công!');
-
-        // Lưu lịch sử đăng nhập vào Firestore
-        const userId = user.uid;
-        const userName = userDoc.empty ? email : userDoc.docs[0].data().fullName;
-        const loginTimestamp = new Date();
-
-        const loginHistoryRef = collection(db, "loginHistory");
-        await setDoc(doc(loginHistoryRef, `${userId}_${Date.now()}`), {
-            userId: userId,
-            username: userName,
-            timestamp: loginTimestamp.toISOString(),
-            formattedTime: formatTimestamp(loginTimestamp.toISOString())
-        });
-
-        // Chuyển hướng đến trang chính sau khi đăng nhập thành công
-        window.location.href = './home.html';
-
-    } catch (error) {
-        // Xử lý lỗi khi đăng nhập
-        if (error.code === 'auth/user-not-found') {
-            alert('Tài khoản không tồn tại.');
-        } else if (error.code === 'auth/wrong-password') {
-            alert('Mật khẩu không đúng.');
-        } else {
-            alert('Đã xảy ra lỗi: ' + error.message);
-        }
-    }
-}
 
         function validatePassword() {
             const password = document.getElementById('registerPassword').value;
@@ -635,7 +648,6 @@
             <input type="password" id="loginPassword" placeholder="Mật khẩu" required>
             <span class="error" id="loginPasswordError"></span>
             <button type="submit">Đăng Nhập</button>
-            <div id="recaptcha-container"></div>
             <div class="forgot-password" id="forgotPassword">Quên mật khẩu?</div>
             <div class="or-text">or</div>
             <div class="auth-buttons">
@@ -650,121 +662,127 @@
                 </button>
             </div>
             <div>Chưa có tài khoản? <span id="showRegister" style="color: blue; cursor: pointer;">Đăng Ký</span></div>
-        </form>
-
-        <form id="registerForm" style="display: none;">
-            <h2>Đăng Ký</h2>
-            <input type="text" id="fullName" placeholder="Họ và tên" required>
-            <span class="error" id="fullNameError"></span>
-            <input type="text" id="username" placeholder="Tên người dùng" required>
-            <span class="error" id="usernameError"></span>
-            <input type="email" id="registerEmail" placeholder="Email" required>
-            <span class="error" id="registerEmailError"></span>
-            <input type="password" id="registerPassword" placeholder="Mật khẩu" required>
-            <div id="passwordRequirements">
-                <p id="passwordLength" class="error">Mật khẩu phải có ít nhất 8 ký tự</p>
-                <p id="passwordUpper" class="error">Mật khẩu phải chứa cả chữ hoa và chữ thường</p>
-                <p id="passwordSpecial" class="error">Mật khẩu phải có ít nhất một ký tự đặc biệt</p>
+            <!-- reCAPTCHA Container -->
+            <div class="recaptcha-container">
+                <div class="g-recaptcha" data-sitekey="6Lfkv28qAAAAAPhywqFcqRGQ151tfR6t6Biq0aZA"></div>
             </div>
-            <span class="error" id="registerPasswordError"></span>
-            <input type="password" id="confirmPassword" placeholder="Xác nhận mật khẩu" required>
-            <p id="confirmMessage" class="message"></p>
-            <div class="phone-container">
-                <select id="phoneCode" name="phoneCode" required>
-                    <option value="+84">+84 (Vietnam)</option>
-                    <option value="+1">+1 (USA)</option>
-                    <option value="+44">+44 (United Kingdom)</option>
-                    <option value="+61">+61 (Australia)</option>
-                    <option value="+49">+49 (Germany)</option>
-                    <option value="+33">+33 (France)</option>
-                    <option value="+39">+39 (Italy)</option>
-                    <option value="+34">+34 (Spain)</option>
-                    <option value="+7">+7 (Russia)</option>
-                    <option value="+81">+81 (Japan)</option>
-                    <option value="+65">+65 (Singapore)</option>
-                    <option value="+60">+60 (Malaysia)</option>
-                    <option value="+86">+86 (China)</option>
-                    <option value="+91">+91 (India)</option>
-                    <option value="+62">+62 (Indonesia)</option>
-                    <option value="+82">+82 (South Korea)</option>
-                    <option value="+90">+90 (Turkey)</option>
-                    <option value="+55">+55 (Brazil)</option>
-                    <option value="+27">+27 (South Africa)</option>
-                </select>
-                <input type="tel" id="phoneNumber" placeholder="Số điện thoại" required>
-            </div>
-            <span class="error" id="phoneNumberError"></span>
-            <select id="province" name="province" required>
-                <option value="">Chọn tỉnh</option>
-                <option value="Hanoi">Hà Nội</option>
-                <option value="HCMC">TP. Hồ Chí Minh</option>
-                <option value="Danang">Đà Nẵng</option>
-                <option value="Haiphong">Hải Phòng</option>
-                <option value="Cantho">Cần Thơ</option>
-                <option value="AnGiang">An Giang</option>
-                <option value="BacGiang">Bắc Giang</option>
-                <option value="BacKan">Bắc Kạn</option>
-                <option value="BacNinh">Bắc Ninh</option>
-                <option value="BinhDinh">Bình Định</option>
-                <option value="BinhDuong">Bình Dương</option>
-                <option value="BinhPhuoc">Bình Phước</option>
-                <option value="CaMau">Cà Mau</option>
-                <option value="CanTho">Cần Thơ</option>
-                <option value="DaNang">Đà Nẵng</option>
-                <option value="DongNai">Đồng Nai</option>
-                <option value="DongThap">Đồng Tháp</option>
-                <option value="GiaLai">Gia Lai</option>
-                <option value="HaNam">Hà Nam</option>
-                <option value="HaTinh">Hà Tĩnh</option>
-                <option value="HauGiang">Hậu Giang</option>
-                <option value="HoaBinh">Hòa Bình</option>
-                <option value="HungYen">Hưng Yên</option>
-                <option value="KienGiang">Kiên Giang</option>
-                <option value="KonTum">Kon Tum</option>
-                <option value="Lai Chau">Lai Châu</option>
-                <option value="LamDong">Lâm Đồng</option>
-                <option value="LangSon">Lạng Sơn</option>
-                <option value="NinhBinh">Ninh Bình</option>
-                <option value="NinhThuan">Ninh Thuận</option>
-                <option value="NgheAn">Nghệ An</option>
-                <option value="ThaiBinh">Thái Bình</option>
-                <option value="ThaiNguyen">Thái Nguyên</option>
-                <option value="ThanhHoa">Thanh Hóa</option>
-                <option value="ThuaThienHue">Thừa Thiên Huế</option>
-                <option value="TienGiang">Tiền Giang</option>
-                <option value="TraVinh">Trà Vinh</option>
-                <option value="TuyenQuang">Tuyên Quang</option>
-                <option value="VinhLong">Vĩnh Long</option>
-                <option value="VinhPhuc">Vĩnh Phúc</option>
-                <option value="YenBai">Yên Bái</option>
-                <option value="QuangBinh">Quảng Bình</option>
-                <option value="QuangNam">Quảng Nam</option>
-                <option value="QuangNgai">Quảng Ngãi</option>
-                <option value="QuangNinh">Quảng Ninh</option>
-                <option value="SocTrang">Sóc Trăng</option>
-                <option value="DakLak">Đắk Lắk</option>
-                <option value="DakNong">Đắk Nông</option>
-                <option value="HauGiang">Hậu Giang</option>
 
-            </select>
-            <button type="submit">Đăng Ký</button>
-            <div class="or-text">or</div>
-            <div class="auth-buttons">
-                <button type="button" id="googleRegister" class="google-button">
-                    <img src="images/google-icon.png" alt="Google Logo">
-                </button>
-            </div>
-            <div>Đã có tài khoản? <span id="showLogin" style="color: blue; cursor: pointer;">Đăng Nhập</span></div>
-        </form>
+            <div id="recaptchaError" class="error"></div>
 
-        <div id="resetPasswordContainer" style="display: none;">
-            <h2>Đặt Lại Mật Khẩu</h2>
-            <input type="email" id="resetEmail" placeholder="Email" required>
-            <button type="button" id="sendResetCode">Gửi mã đặt lại</button>
+    </form>
+
+    <form id="registerForm" style="display: none;">
+        <h2>Đăng Ký</h2>
+        <input type="text" id="fullName" placeholder="Họ và tên" required>
+        <span class="error" id="fullNameError"></span>
+        <input type="text" id="username" placeholder="Tên người dùng" required>
+        <span class="error" id="usernameError"></span>
+        <input type="email" id="registerEmail" placeholder="Email" required>
+        <span class="error" id="registerEmailError"></span>
+        <input type="password" id="registerPassword" placeholder="Mật khẩu" required>
+        <div id="passwordRequirements">
+            <p id="passwordLength" class="error">Mật khẩu phải có ít nhất 8 ký tự</p>
+            <p id="passwordUpper" class="error">Mật khẩu phải chứa cả chữ hoa và chữ thường</p>
+            <p id="passwordSpecial" class="error">Mật khẩu phải có ít nhất một ký tự đặc biệt</p>
         </div>
+        <span class="error" id="registerPasswordError"></span>
+        <input type="password" id="confirmPassword" placeholder="Xác nhận mật khẩu" required>
+        <p id="confirmMessage" class="message"></p>
+        <div class="phone-container">
+            <select id="phoneCode" name="phoneCode" required>
+                <option value="+84">+84 (Vietnam)</option>
+                <option value="+1">+1 (USA)</option>
+                <option value="+44">+44 (United Kingdom)</option>
+                <option value="+61">+61 (Australia)</option>
+                <option value="+49">+49 (Germany)</option>
+                <option value="+33">+33 (France)</option>
+                <option value="+39">+39 (Italy)</option>
+                <option value="+34">+34 (Spain)</option>
+                <option value="+7">+7 (Russia)</option>
+                <option value="+81">+81 (Japan)</option>
+                <option value="+65">+65 (Singapore)</option>
+                <option value="+60">+60 (Malaysia)</option>
+                <option value="+86">+86 (China)</option>
+                <option value="+91">+91 (India)</option>
+                <option value="+62">+62 (Indonesia)</option>
+                <option value="+82">+82 (South Korea)</option>
+                <option value="+90">+90 (Turkey)</option>
+                <option value="+55">+55 (Brazil)</option>
+                <option value="+27">+27 (South Africa)</option>
+            </select>
+            <input type="tel" id="phoneNumber" placeholder="Số điện thoại" required>
+        </div>
+        <span class="error" id="phoneNumberError"></span>
+        <select id="province" name="province" required>
+            <option value="">Chọn tỉnh</option>
+            <option value="Hanoi">Hà Nội</option>
+            <option value="HCMC">TP. Hồ Chí Minh</option>
+            <option value="Danang">Đà Nẵng</option>
+            <option value="Haiphong">Hải Phòng</option>
+            <option value="Cantho">Cần Thơ</option>
+            <option value="AnGiang">An Giang</option>
+            <option value="BacGiang">Bắc Giang</option>
+            <option value="BacKan">Bắc Kạn</option>
+            <option value="BacNinh">Bắc Ninh</option>
+            <option value="BinhDinh">Bình Định</option>
+            <option value="BinhDuong">Bình Dương</option>
+            <option value="BinhPhuoc">Bình Phước</option>
+            <option value="CaMau">Cà Mau</option>
+            <option value="CanTho">Cần Thơ</option>
+            <option value="DaNang">Đà Nẵng</option>
+            <option value="DongNai">Đồng Nai</option>
+            <option value="DongThap">Đồng Tháp</option>
+            <option value="GiaLai">Gia Lai</option>
+            <option value="HaNam">Hà Nam</option>
+            <option value="HaTinh">Hà Tĩnh</option>
+            <option value="HauGiang">Hậu Giang</option>
+            <option value="HoaBinh">Hòa Bình</option>
+            <option value="HungYen">Hưng Yên</option>
+            <option value="KienGiang">Kiên Giang</option>
+            <option value="KonTum">Kon Tum</option>
+            <option value="Lai Chau">Lai Châu</option>
+            <option value="LamDong">Lâm Đồng</option>
+            <option value="LangSon">Lạng Sơn</option>
+            <option value="NinhBinh">Ninh Bình</option>
+            <option value="NinhThuan">Ninh Thuận</option>
+            <option value="NgheAn">Nghệ An</option>
+            <option value="ThaiBinh">Thái Bình</option>
+            <option value="ThaiNguyen">Thái Nguyên</option>
+            <option value="ThanhHoa">Thanh Hóa</option>
+            <option value="ThuaThienHue">Thừa Thiên Huế</option>
+            <option value="TienGiang">Tiền Giang</option>
+            <option value="TraVinh">Trà Vinh</option>
+            <option value="TuyenQuang">Tuyên Quang</option>
+            <option value="VinhLong">Vĩnh Long</option>
+            <option value="VinhPhuc">Vĩnh Phúc</option>
+            <option value="YenBai">Yên Bái</option>
+            <option value="QuangBinh">Quảng Bình</option>
+            <option value="QuangNam">Quảng Nam</option>
+            <option value="QuangNgai">Quảng Ngãi</option>
+            <option value="QuangNinh">Quảng Ninh</option>
+            <option value="SocTrang">Sóc Trăng</option>
+            <option value="DakLak">Đắk Lắk</option>
+            <option value="DakNong">Đắk Nông</option>
+            <option value="HauGiang">Hậu Giang</option>
+
+        </select>
+        <button type="submit">Đăng Ký</button>
+        <div class="or-text">or</div>
+        <div class="auth-buttons">
+            <button type="button" id="googleRegister" class="google-button">
+                <img src="images/google-icon.png" alt="Google Logo">
+            </button>
+        </div>
+        <div>Đã có tài khoản? <span id="showLogin" style="color: blue; cursor: pointer;">Đăng Nhập</span></div>
+    </form>
+
+    <div id="resetPasswordContainer" style="display: none;">
+        <h2>Đặt Lại Mật Khẩu</h2>
+        <input type="email" id="resetEmail" placeholder="Email" required>
+        <button type="button" id="sendResetCode">Gửi mã đặt lại</button>
+    </div>
     </div>
 </body>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-<div class="g-recaptcha" data-sitekey="6Lfkv28qAAAAAPhywqFcqRGQ151tfR6t6Biq0aZA"></div>
 
 </html>

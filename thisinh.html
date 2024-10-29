@@ -8,17 +8,10 @@
 
     <script type="module">
         // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
-            authDomain: "luutru-2fc0c.firebaseapp.com",
-            projectId: "luutru-2fc0c",
-            storageBucket: "luutru-2fc0c.appspot.com",
-            messagingSenderId: "447316566416",
-            appId: "1:447316566416:web:8ea9562ef016528232d315",
-            measurementId: "G-QLE52FWS60"
-        };
 
         // Import Firebase libraries
+        import { firebaseConfig } from './firebaseConfig.js';
+        import { adminCredentials } from './config.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
         import { getFirestore, collection, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
@@ -171,7 +164,7 @@
             }
 
             // Kiểm tra tài khoản và mật khẩu
-            if (username === 'admin@gknm.id.vn' && password === '868686') {
+            if (username === adminCredentials.username && password === adminCredentials.password) {
                 loginAttempts = 0; // Reset số lần đăng nhập thất bại
                 document.getElementById('login-container').style.display = 'none'; // Ẩn form đăng nhập
                 document.getElementById('main-content').style.display = 'flex';    // Hiển thị nội dung chính

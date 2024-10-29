@@ -178,18 +178,10 @@
         }
     </style>
     <script type="module">
+        import { firebaseConfig } from './firebaseConfig.js';
+        import { adminCredentials } from './config.js';
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
         import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCer_BVSGUIICAocIOwiqGwtHSbmUTy-TI",
-            authDomain: "luutru-2fc0c.firebaseapp.com",
-            projectId: "luutru-2fc0c",
-            storageBucket: "luutru-2fc0c.appspot.com",
-            messagingSenderId: "447316566416",
-            appId: "1:447316566416:web:8ea9562ef016528232d315",
-            measurementId: "G-QLE52FWS60"
-        };
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -240,6 +232,8 @@
 
             // Lock state in localStorage (for the current browser)
             localStorage.setItem(`${deviceIdentifier}_adminLocked`, 'true');
+            localStorage.setItem(`${deviceIdentifier}_lockoutTime`, new Date().getTime().toString());
+
             if (userIP) {
                 localStorage.setItem(`${userIP}_adminLocked`, 'true'); // Lock by IP
             }
@@ -257,94 +251,120 @@
             showLockedMessage();
         }
 
-        // Unlock the admin page (both in Firestore and local storage)
         async function unlockAdminPage() {
-            const userIP = await getUserIP();
+    const userIP = await getUserIP();
 
-            // Unlock state in localStorage
-            localStorage.setItem(`${deviceIdentifier}_adminLocked`, 'false');
-            if (userIP) {
-                localStorage.setItem(`${userIP}_adminLocked`, 'false'); // Unlock by IP
+    // Unlock state in localStorage
+    localStorage.setItem(`${deviceIdentifier}_adminLocked`, 'false');
+    localStorage.setItem(`${deviceIdentifier}_loginAttempts`, '0');
+    localStorage.removeItem(`${deviceIdentifier}_lockoutTime`);
+
+    if (userIP) {
+        localStorage.setItem(`${userIP}_adminLocked`, 'false'); // Unlock by IP
+    }
+
+    // Unlock state in Firestore
+    if (userIP) {
+        const lockRef = doc(db, 'adminLocks', userIP);
+        await updateDoc(lockRef, {
+            locked: false
+        });
+    }
+
+    hideLockedMessage();
+    showLoginForm();
+}
+async function checkLockStatus() {
+    const userIP = await getUserIP();
+
+    // Check if the page is locked in localStorage first
+    const localLock = localStorage.getItem(`${deviceIdentifier}_adminLocked`);
+    const lockoutTimeLocal = localStorage.getItem(`${deviceIdentifier}_lockoutTime`);
+    const currentTime = new Date().getTime();
+
+    if (localLock === 'true' && currentTime - lockoutTimeLocal < LOCKOUT_DURATION) {
+        lockAdminPage(); // Lock page based on localStorage
+        return;
+    }
+
+    // If not locked in localStorage, check Firestore
+    if (userIP) {
+        const lockRef = doc(db, 'adminLocks', userIP);
+        const lockDoc = await getDoc(lockRef);
+
+        if (lockDoc.exists()) {
+            const lockData = lockDoc.data();
+            const lockoutTimeFirestore = lockData.lockoutTime;
+
+            // If the page is locked and lockout time has not expired
+            if (lockData.locked && currentTime - lockoutTimeFirestore < LOCKOUT_DURATION) {
+                lockAdminPage(); // Lock page based on Firestore
+            } else if (lockData.locked && currentTime - lockoutTimeFirestore >= LOCKOUT_DURATION) {
+                // If lockout time has expired, unlock the page
+                unlockAdminPage();
+            } else {
+                showLoginForm();
             }
-            localStorage.setItem(`${deviceIdentifier}_loginAttempts`, '0');
-            localStorage.removeItem(`${deviceIdentifier}_lockoutTime`); // Clear lockout time
-
-            // Unlock state in Firestore
-            if (userIP) {
-                const lockRef = doc(db, 'adminLocks', userIP);
-                await updateDoc(lockRef, {
-                    locked: false
-                });
-            }
-
-            hideLockedMessage();
-            showLoginForm();
+        } else {
+            showLoginForm(); // No lock found, show login form
         }
-
-        // Check lock status from Firestore when loading the page
-        async function checkLockStatus() {
-            const userIP = await getUserIP();
-
-            // Check if the page is locked in Firestore
-            if (userIP) {
-                const lockRef = doc(db, 'adminLocks', userIP);
-                const lockDoc = await getDoc(lockRef);
-
-                if (lockDoc.exists()) {
-                    const lockData = lockDoc.data();
-                    const lockoutTime = lockData.lockoutTime;
-                    const currentTime = new Date().getTime();
-
-                    // If the page is locked and lockout time has not expired
-                    if (lockData.locked && currentTime - lockoutTime < LOCKOUT_DURATION) {
-                        lockAdminPage();
-                    } else if (lockData.locked && currentTime - lockoutTime >= LOCKOUT_DURATION) {
-                        // If lockout time has expired, unlock the page
-                        unlockAdminPage();
-                    } else {
-                        showLoginForm();
-                    }
-                } else {
-                    showLoginForm(); // No lock found, show login form
-                }
-            }
-        }
-
+    }
+}
         // Authenticate admin with username and password
         window.authenticateAdmin = async function (username, password) {
-            const correctUsername = 'admin@gknm.id.vn';
-            const correctPassword = '868686';
+    let attempts = parseInt(localStorage.getItem(`${deviceIdentifier}_loginAttempts`)) || 0;
+    const userIP = await getUserIP();
 
-            let attempts = parseInt(localStorage.getItem(`${deviceIdentifier}_loginAttempts`)) || 0;
-            const userIP = await getUserIP();
+    if (username === adminCredentials.username && password === adminCredentials.password) {
+        isAdminLoggedIn = true;
+        localStorage.setItem(`${deviceIdentifier}_loginAttempts`, '0');
+        localStorage.setItem(`${deviceIdentifier}_adminLocked`, 'false');
+        if (userIP) {
+            localStorage.setItem(`${userIP}_adminLocked`, 'false');
+        }
+        hideLockedMessage();
+        hideLoginForm();
+        displayUsers();
+    } else {
+        attempts += 1;
+        localStorage.setItem(`${deviceIdentifier}_loginAttempts`, attempts.toString());
 
-            if (username === correctUsername && password === correctPassword) {
-                isAdminLoggedIn = true;
-                localStorage.setItem(`${deviceIdentifier}_loginAttempts`, '0');
-                localStorage.setItem(`${deviceIdentifier}_adminLocked`, 'false');
-                if (userIP) {
-                    localStorage.setItem(`${userIP}_adminLocked`, 'false');
-                }
-                hideLockedMessage();
-                hideLoginForm();
-                displayUsers();
-            } else {
-                attempts += 1;
-                localStorage.setItem(`${deviceIdentifier}_loginAttempts`, attempts.toString());
-
-                if (attempts >= MAX_ATTEMPTS) {
-                    localStorage.setItem(`${deviceIdentifier}_adminLocked`, 'true');
-                    localStorage.setItem(`${deviceIdentifier}_lockoutTime`, new Date().getTime().toString());
-                    if (userIP) {
-                        localStorage.setItem(`${userIP}_adminLocked`, 'true');
-                    }
-                    lockAdminPage();
-                    alert('Bạn đã nhập sai quá 5 lần. Trang đã bị khóa trong 10 phút.');
-                } else {
-                    alert(`Sai tài khoản hoặc mật khẩu. Bạn còn ${MAX_ATTEMPTS - attempts} lần thử.`);
-                }
+        if (attempts >= MAX_ATTEMPTS) {
+            localStorage.setItem(`${deviceIdentifier}_adminLocked`, 'true');
+            localStorage.setItem(`${deviceIdentifier}_lockoutTime`, new Date().getTime().toString());
+            if (userIP) {
+                localStorage.setItem(`${userIP}_adminLocked`, 'true');
             }
-        };
+            lockAdminPage();
+            alert('Bạn đã nhập sai quá 5 lần. Trang đã bị khóa trong 10 phút.');
+        } else {
+            alert(`Sai tài khoản hoặc mật khẩu. Bạn còn ${MAX_ATTEMPTS - attempts} lần thử.`);
+        }
+    }
+};
+async function incrementFailedAttempts(userIP) {
+    const attemptsRef = doc(db, 'loginAttempts', userIP);
+    const attemptsDoc = await getDoc(attemptsRef);
+
+    if (attemptsDoc.exists()) {
+        const data = attemptsDoc.data();
+        const newAttempts = data.attempts + 1;
+
+        await updateDoc(attemptsRef, {
+            attempts: newAttempts,
+            lastAttempt: new Date().getTime(),
+        });
+
+        return newAttempts;
+    } else {
+        await setDoc(attemptsRef, {
+            attempts: 1,
+            lastAttempt: new Date().getTime(),
+        });
+
+        return 1;
+    }
+}
 
         // Display users from Firestore
         async function displayUsers() {
@@ -420,7 +440,6 @@
             window.location.href = 'login.html'; // Change to your login page path
         }
 
-        // Unlock with Ctrl + G
         let unlockSequence = ['G'];
         let currentUnlockIndex = 0;
 
