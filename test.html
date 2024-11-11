@@ -339,58 +339,61 @@
         }
 
         // Submit quiz and stop recording
-        async function submitQuiz() {
-            const submitButton = document.querySelector('.submit-btn');
-            submitButton.disabled = true;  // Vô hiệu hóa nút "Nộp bài" sau khi nhấn
-            submitButton.textContent = "Đang nộp bài...";  // Thay đổi văn bản nút để thông báo cho người dùng
+     async function submitQuiz() {
+    const submitButton = document.querySelector('.submit-btn');
+    submitButton.disabled = true;  // Vô hiệu hóa nút "Nộp bài" sau khi nhấn
+    submitButton.textContent = "Đang nộp bài...";  // Thay đổi văn bản nút để thông báo cho người dùng
 
-            // Stop recording and wait for the video to finish uploading
-            await stopRecording();
+    // Stop recording and wait for the video to finish uploading
+    await stopRecording();
 
-            // Handle quiz submission logic (checking answers, updating Firestore)
-            let correctCount = 0;
-            const formData = new FormData(quizForm);
+    // Handle quiz submission logic (checking answers, updating Firestore)
+    let correctCount = 0;
+    const formData = new FormData(quizForm);
 
-            formData.forEach((value, key) => {
-                const questionIndex = parseInt(key.slice(1)) - 1;
-                if (selectedQuestions[questionIndex].answer === value) {
-                    correctCount++;
-                }
-            });
-
-            // Disable all inputs after submission
-            const inputs = quizForm.querySelectorAll('input');
-            inputs.forEach(input => {
-                input.disabled = true;
-            });
-
-            // Show message with the result
-            message.style.display = 'block';
-            message.textContent = `Cảm ơn bạn đã hoàn thành bài thi! Bạn trả lời đúng ${correctCount}/20 câu.`;
-
-            // Update end time and score in Firestore
-            const endTime = new Date();
-            if (quizDocRef) {
-                await quizDocRef.update({
-                    score: correctCount,
-                    endTime: endTime
-                });
-            }
-
-            // Change button text to "Nộp bài thành công"
-            submitButton.textContent = "Nộp bài thành công";
-
-            // Show certificate button if the score is enough
-            if (correctCount >= 15) {
-                certBtn.style.display = 'block';
-                message.textContent += " Bạn đã đủ điều kiện nhận chứng chỉ!";
-            } else {
-                message.textContent += " Bạn chưa đủ điều kiện nhận chứng chỉ.";
-                setTimeout(() => {
-                    window.location.href = 'home.html';
-                }, 3000); // Redirect after 3 seconds
-            }
+    formData.forEach((value, key) => {
+        const questionIndex = parseInt(key.slice(1)) - 1;
+        if (selectedQuestions[questionIndex].answer === value) {
+            correctCount++;
         }
+    });
+
+    // Disable all inputs after submission
+    const inputs = quizForm.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.disabled = true;
+    });
+
+    // Show message with the result
+    message.style.display = 'block';
+    message.textContent = `Cảm ơn bạn đã hoàn thành bài thi! Bạn trả lời đúng ${correctCount}/20 câu.`;
+
+    // Update end time and score in Firestore
+    const endTime = new Date();
+    if (quizDocRef) {
+        await quizDocRef.update({
+            score: correctCount,
+            endTime: endTime
+        });
+    }
+
+    // Change button text to "Nộp bài thành công"
+    submitButton.textContent = "Nộp bài thành công";
+
+    // Show certificate button if the score is enough
+    if (correctCount >= 15) {
+        certBtn.style.display = 'block';
+        message.textContent += " Bạn đã đủ điều kiện nhận chứng chỉ!";
+    } else {
+        message.textContent += " Bạn chưa đủ điều kiện nhận chứng chỉ.";
+        setTimeout(() => {
+            window.location.href = 'home.html';
+        }, 3000); // Redirect after 3 seconds
+    }
+}
+
+// Attach the function to the window object to make it globally accessible
+window.submitQuiz = submitQuiz;
         // Display quiz questions
         function displayQuestions() {
             selectedQuestions = getRandomQuestions(20);
